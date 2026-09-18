@@ -177,11 +177,11 @@ Apply before declaring any task done:
 
 | Points | Effort | Typical scope |
 |---|---|---|
-| 1 | < 2 hours | Single validation rule or minor tweak |
-| 2 | 2-4 hours | New service method with unit tests |
-| 3 | 4-6 hours | New service method + mapper + unit tests |
-| 5 | ~1 day | New endpoint + service + persistence + tests |
-| 8 | 1-2 days | Full vertical slice (domain + service + REST + persistence + integration test) |
+| 1 | 20 minutes | Single validation rule or minor tweak |
+| 2 | 20-40 minutes | New service method with unit tests |
+| 3 | 40-60 minutes | New service method + mapper + unit tests |
+| 5 | 60-100 minutes | New endpoint + service + persistence + tests |
+| 8 | 100-150 minutes | Full vertical slice (domain + service + REST + persistence + integration test) |
 
 Split any task above 8 points. Remember the assignment's own target is ~7 hours total — most stories
 here should land at 1–5 points.

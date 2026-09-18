@@ -1,0 +1,14 @@
+# Normalize every text file to LF in the repository AND in the working tree,
+# so the content is byte-identical on Windows, macOS and Linux.
+* text=auto eol=lf
+
+# Windows batch files must keep CRLF to run correctly.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Never touch binaries.
+*.pdf binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary

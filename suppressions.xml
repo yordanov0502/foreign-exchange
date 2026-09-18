@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE suppressions PUBLIC
+        "-//Puppy Crawl//DTD Suppressions 1.1//EN"
+        "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
+<suppressions>
+    <suppress checks="[a-zA-Z0-9]*" files="ForeignExchangeApplication.java"/>
+    <suppress checks="[a-zA-Z0-9]*" files="zetta.foreignexchange.*Configuration*.java"/>
+    <suppress checks="MethodLength" files="zetta.foreignexchange.*Assembler*.java"/>
+    <suppress checks="MethodLength" files="zetta.foreignexchange.*Provider.java"/>
+    <suppress checks="FileLength" files="zetta.foreignexchange.*(Test|SetUp).*\.java"/>
+    <suppress checks="MethodCount" files="zetta.foreignexchange.*Test*.java"/>
+    <suppress checks="MethodLength" files="zetta.foreignexchange.*(Test|SetUp).*\.java"/>
+    <suppress checks="MultipleStringLiterals" files="zetta.foreignexchange.*(Test|SetUp).*\.java"/>
+    <suppress checks="MethodName" files="zetta.foreignexchange.*Test*.java"/>
+    <suppress checks="VisibilityModifier" files="zetta.foreignexchange.*Base.*\.java"/>
+    <suppress checks="HideUtilityClassConstructor" files="ForeignExchangeApplication.java"/>
+
+</suppressions>

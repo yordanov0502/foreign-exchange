@@ -13,6 +13,6 @@ public record ExchangeRateResponse(
         String baseCurrency,
         @Schema(description = "Currency being converted to.", example = "EUR")
         String quoteCurrency,
-        @Schema(description = "Units of target currency per one unit of source currency.", example = "0.86984000")
+        @Schema(description = "Units of target currency per one unit of source currency.", example = "0.86984")
         BigDecimal rate) {
 }

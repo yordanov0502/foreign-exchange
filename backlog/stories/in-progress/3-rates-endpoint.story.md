@@ -126,8 +126,8 @@ rather than hardcoded), plus correctness (REQ-1's contract) and testing discipli
 
 - [ ] `GET /rates?from=USD&to=EUR` returns `200` with a JSON body containing `baseCurrency`,
       `quoteCurrency` and `rate`
-- [ ] `rate` is serialised from a `BigDecimal` at scale `8` (`EntityConstant.RATE_SCALE`) with
-      `RoundingMode.HALF_UP` — matching the `NUMERIC(19, 8)` column Seq 4 writes it into; no `double` or
+- [ ] `rate` is serialised from a `BigDecimal` at scale `5` (`EntityConstant.RATE_SCALE`) with
+      `RoundingMode.HALF_UP` — matching the `NUMERIC(19, 5)` column Seq 4 writes it into; no `double` or
       `float` appears anywhere on the path, including in the provider response record
 - [ ] The endpoint is mapped at exactly `/rates` with query parameters named `from` and `to` — the wire
   names the brief fixes — bound to method parameters named `baseCurrency` and `quoteCurrency`
@@ -304,7 +304,7 @@ Money precision constants already exist and must be reused rather than redeclare
 
 ```java
 public static final int MONEY_SCALE = 4;
-public static final int RATE_SCALE = 8;
+public static final int RATE_SCALE = 5;
 ```
 
 ### TDD Steps

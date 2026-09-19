@@ -47,7 +47,7 @@ public class RateController {
                                   "date": "2026-09-20",
                                   "baseCurrency": "USD",
                                   "quoteCurrency": "EUR",
-                                  "rate": 0.86984000
+                                  "rate": 0.86984
                                 }
                                 """))),
         @ApiResponse(

@@ -39,7 +39,7 @@ class RateServiceTest {
     private static final String LOWERCASE_CURRENCY = "us";
     private static final LocalDate QUOTE_DATE = LocalDate.of(2026, 9, 20);
     private static final BigDecimal PROVIDER_RATE = new BigDecimal("0.86984");
-    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984000");
+    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984");
     private static final String PROVIDER_FAILED_MESSAGE = "provider failed";
 
     @Mock

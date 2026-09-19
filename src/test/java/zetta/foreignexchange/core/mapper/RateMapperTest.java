@@ -18,7 +18,7 @@ class RateMapperTest {
     private static final String EUR = "EUR";
     private static final LocalDate QUOTE_DATE = LocalDate.of(2026, 9, 20);
     private static final BigDecimal PROVIDER_RATE = new BigDecimal("0.86984");
-    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984000");
+    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984");
 
     private final RateMapper rateMapper = Mappers.getMapper(RateMapper.class);
 
@@ -43,7 +43,7 @@ class RateMapperTest {
 
         ExchangeRate exchangeRate = rateMapper.mapToRate(frankfurterRatePairResponse);
 
-        assertEquals(new BigDecimal("0.12345679"), exchangeRate.rate());
+        assertEquals(new BigDecimal("0.12346"), exchangeRate.rate());
     }
 
     @Test

@@ -1,0 +1,1 @@
+ALTER TABLE conversions ALTER COLUMN rate TYPE NUMERIC(19, 5);

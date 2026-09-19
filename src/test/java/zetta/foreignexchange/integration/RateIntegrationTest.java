@@ -46,7 +46,7 @@ public class RateIntegrationTest extends BaseIntegrationTestSetUp {
     private static final String UNKNOWN_CURRENCY = "XXX";
     private static final LocalDate QUOTE_DATE = LocalDate.of(2026, 9, 20);
     private static final BigDecimal PROVIDER_RATE = new BigDecimal("0.86984");
-    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984000");
+    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984");
     private static final String EXCHANGE_RATE_UNAVAILABLE_CODE = "EXCHANGE_RATE_UNAVAILABLE";
     private static final String EXCHANGE_RATE_UNAVAILABLE_MESSAGE =
             "Exchange rate for currency pair %s/%s is currently unavailable.";

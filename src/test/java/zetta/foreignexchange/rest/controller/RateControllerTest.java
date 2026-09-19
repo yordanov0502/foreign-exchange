@@ -28,7 +28,7 @@ public class RateControllerTest {
 
     private static final String USD = "USD";
     private static final String EUR = "EUR";
-    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984000");
+    private static final BigDecimal SCALED_RATE = new BigDecimal("0.86984");
 
     @Mock
     private RateService rateService;

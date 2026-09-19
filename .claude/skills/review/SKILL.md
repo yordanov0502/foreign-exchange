@@ -122,7 +122,7 @@ Output the structured report using the template from `../../../../../../../forei
 ### Action Required
 
 - [ ] [Issue #1 fix]
-- [ ] Re-run `mvn checkstyle:check` and `mvn spotless:apply` after changes
+- [ ] Re-run `mvn checkstyle:check` after changes
 - [ ] Re-request review after all BLOCKING issues are resolved
 ```
 

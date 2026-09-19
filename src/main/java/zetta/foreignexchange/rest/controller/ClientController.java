@@ -90,7 +90,7 @@ public class ClientController {
                                 """)))
     })
     @GetMapping(value = "/{clientId}/balances", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ClientBalancesResponse> getClientBalances(@PathVariable String clientId) {
+    public ResponseEntity<ClientBalancesResponse> getClientBalances(@PathVariable final String clientId) {
         List<Balance> balances = balanceService.getClientBalances(clientId);
         return ResponseEntity.ok(clientBalancesResponseMapper.mapToClientBalancesResponse(clientId, balances));
     }

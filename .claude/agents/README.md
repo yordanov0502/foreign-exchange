@@ -13,7 +13,7 @@ Full brief: `.claude/Java-Assignment.pdf`.
 | `@architect` | opus   | Architecture & Security Lead — REST API design, JPA schema, concurrency/idempotency strategy | On-demand: complex feature design, locking strategy, schema decisions, ADR authorship |
 | `@coder` | sonnet | Senior Java Engineer — TDD implementation, Spring Boot patterns, JPA persistence | All implementation tasks |
 | `@tester` | sonnet | Senior QA Engineer — money-movement test scenarios, concurrency/idempotency coverage | Writing tests at the correct pyramid level; asserting assignment requirements as executable specs |
-| `@reviewer` | sonnet | Senior Code Reviewer — correctness, checkstyle/spotless compliance, TDD discipline | Before any PR is merged: full code review with structured report (issues, severity, required fixes) |
+| `@reviewer` | sonnet | Senior Code Reviewer — correctness, checkstyle compliance, TDD discipline | Before any PR is merged: full code review with structured report (issues, severity, required fixes) |
 | `@tech-writer` | sonnet | Technical Writer — README trade-off write-up, architecture docs, developer guides | Documentation: the graded README, system design, setup guides |
 
 ---
@@ -42,7 +42,7 @@ Full brief: `.claude/Java-Assignment.pdf`.
 - Self-learning first: reads an existing similar class before writing anything new
 - Strict TDD: failing test → minimum implementation → refactor
 - Follows exact project patterns: service interface + package-private Impl, MapStruct at every layer boundary, `@ConfigurationProperties` (never `@Value`)
-- Runs `mvn spotless:apply` before declaring done; code must pass `mvn checkstyle:check`
+- Code must pass `mvn checkstyle:check` before declaring done
 - Never uses `double`/`float` for money — always `BigDecimal` with explicit scale and rounding
 
 ### @tester
@@ -134,7 +134,8 @@ GET  /clients/{clientId}/balances  ← current balances, one row per currency
 - **Package discipline**: layer-first (`core/`, `persistence/`, `rest/`, `common/`) — single bounded context, no domain subpackaging.
 - **Layer boundaries**: `rest → core`; `core → persistence, common`. `common` is a peer of `persistence` (external-provider clients + shared utilities, consumed by `core`), not something persistence depends on. No reverse dependencies; `rest` never touches `persistence` directly.
 - **Service visibility**: interface `public`, Impl class **package-private**.
-- **No `@Value`**: all config via `@ConfigurationProperties` records in `common/properties/`.
+- **No `@Value`**: all config via `@ConfigurationProperties` **classes** (mutable, setter-bound — never
+  records) in `common/properties/` or beside the integration they configure.
 - **JPA + Flyway**: never `ddl-auto=update` in the production profile.
 - **Money**: `BigDecimal` with explicit scale and rounding mode — never `double`/`float`.
 - **No auth**: `clientId` is caller-supplied per the assignment spec — do not add auth machinery.

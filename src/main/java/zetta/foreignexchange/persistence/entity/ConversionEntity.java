@@ -43,23 +43,23 @@ public class ConversionEntity {
     @JoinColumn(name = "client_id", nullable = false)
     private ClientEntity client;
 
-    @Column(name = "source_currency", nullable = false, length = EntityConstant.CURRENCY_LENGTH)
-    private String sourceCurrency;
+    @Column(name = "base_currency", nullable = false, length = EntityConstant.CURRENCY_LENGTH)
+    private String baseCurrency;
 
-    @Column(name = "source_amount",
+    @Column(name = "base_amount",
             nullable = false,
             precision = EntityConstant.MONEY_PRECISION,
             scale = EntityConstant.MONEY_SCALE)
-    private BigDecimal sourceAmount;
+    private BigDecimal baseAmount;
 
-    @Column(name = "target_currency", nullable = false, length = EntityConstant.CURRENCY_LENGTH)
-    private String targetCurrency;
+    @Column(name = "quote_currency", nullable = false, length = EntityConstant.CURRENCY_LENGTH)
+    private String quoteCurrency;
 
-    @Column(name = "target_amount",
+    @Column(name = "quote_amount",
             nullable = false,
             precision = EntityConstant.MONEY_PRECISION,
             scale = EntityConstant.MONEY_SCALE)
-    private BigDecimal targetAmount;
+    private BigDecimal quoteAmount;
 
     @Column(nullable = false, precision = EntityConstant.MONEY_PRECISION, scale = EntityConstant.RATE_SCALE)
     private BigDecimal rate;

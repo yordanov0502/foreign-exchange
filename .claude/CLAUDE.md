@@ -28,12 +28,12 @@ generation step. OpenAPI documentation is auto-generated from the controllers vi
 
 ## Code Quality
 
-### Formatting (Spotless + Google Java Format)
-- Style: **Google Java Format**
-- Enforced via `spotless-maven-plugin` (runs on `verify`)
-- Fix formatting: `mvn spotless:apply`
-- Check only: `mvn spotless:check`
-- Import order: `,javax,java` — default group (com.*, org.*, lombok, etc.) first, then javax, then java
+### Formatting
+- There is **no auto-formatter** in this project — no `spotless-maven-plugin`, no `google-java-format`.
+  Formatting is hand-written and enforced only by Checkstyle, so match the surrounding file's style
+  (4-space indent) rather than reaching for a format command.
+- Check: `mvn checkstyle:check`
+- Import order (Checkstyle `ImportOrder`): `,javax,java` — default group (com.*, org.*, lombok, etc.) first, then javax, then java
 - Static imports go at the very top, separated by a blank line from regular imports
 - Imports within each group are alphabetical
 
@@ -107,6 +107,19 @@ Use a **class** when:
 
 **Guideline:** Prefer `record` by default when immutability is guaranteed and stable over time. If there is any doubt, use a class.
 
+**Exception — `@ConfigurationProperties` holders are always classes, never records.** A mutable class
+(no-arg constructor + setters, e.g. Lombok `@Getter`/`@Setter`) binds via JavaBean binding, so
+`@Configuration` or `@Component` alone is enough for component scanning to register it. A record binds via
+constructor binding, which additionally requires `@ConfigurationPropertiesScan` or
+`@EnableConfigurationProperties` — and fails **silently** without it: the context starts, then the first
+injection of a dependent bean dies with `No qualifying bean of type '...Properties'`. Using classes keeps
+that whole failure mode off the table.
+
+**This exception does not extend to third-party API response models — those stay `record`s.** Jackson
+supports records fully, annotations included: `@JsonProperty`, `@JsonInclude`, `@JsonAlias`,
+`@JsonIgnoreProperties` and `@JsonNaming` all work on a record and on its components (verified against the
+Jackson version on this classpath). Immutability is exactly what an inbound provider payload wants.
+
 ### Single Responsibility Principle
 Classes and methods should have a very clear responsibility. Encapsulation is very important.
 Try to always use the minimal needed visibility level for classes and methods.
@@ -168,7 +181,7 @@ src/
 │   │   └── controlleradvice/ <- @RestControllerAdvice + error response model
 │   └── common/
 │       ├── config/         <- @Configuration (caching, HTTP client, OpenAPI)
-│       ├── properties/     <- @ConfigurationProperties records
+│       ├── properties/     <- @ConfigurationProperties classes (mutable, setter-bound)
 │       └── integrations/
 │           └── frankfurter/ <- external rate provider client + response mapping
 └── test/java/zetta/foreignexchange/
@@ -190,7 +203,8 @@ Place code by **layer**, not by feature — this project is one bounded context:
 - New JPA `@Entity` → `persistence/entity`
 - New Spring Data repository → `persistence/repository`
 - New MapStruct mapper → `persistence/mapper` (entity ↔ domain) or `rest/mapper` (domain ↔ DTO)
-- New `@ConfigurationProperties` → `common/properties`
+- New `@ConfigurationProperties` → `common/properties`, or next to the integration it configures
+  (e.g. `common/integrations/frankfurter/configuration/FrankfurterProperties.java`)
 - New `@Configuration` bean → `common/config`
 - New external provider client → `common/integrations/{provider}`
 
@@ -221,7 +235,7 @@ and error codes use.
 - **No generic accumulator names**
 - **Lambda parameters must be named** — `ignored`, `it`, `e`, `s`, `k`, `v` are banned.
 - **Collections state their key and value**
-- **Assignment terms take precedence over generic Java terms** — prefer `sourceCurrency`/`targetCurrency`,
+- **Assignment terms take precedence over generic Java terms** — prefer `baseCurrency`/`quoteCurrency`,
   `sourceAmount`/`targetAmount`, `transactionId`, `clientId`, `idempotencyKey`, `rate` over generic
   `from`/`to`, `amount`, `id`, `key`, `value`.
 

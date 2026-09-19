@@ -184,15 +184,27 @@ JPA Entity         →[persistence/mapper]→ Core Domain Model
 
 All configuration values are bound via `@ConfigurationProperties`, never `@Value`:
 
-```java
-@ConfigurationProperties(prefix = "frankfurter.client")
-public record FrankfurterClientProperties(String baseUrl, Duration connectTimeout, Duration readTimeout) {}
+Properties holders are **mutable classes, never records** — a class binds by JavaBean binding and is
+registered by plain component scanning, whereas a record needs constructor binding plus
+`@ConfigurationPropertiesScan` / `@EnableConfigurationProperties` and fails silently without it:
 
-@ConfigurationProperties(prefix = "rates.cache")
-public record RateCacheProperties(Duration ttl) {}
+```java
+@Configuration
+@ConfigurationProperties(prefix = "frankfurter.client")
+@Getter
+@Setter
+public class FrankfurterProperties {
+
+    private String url;
+    private Duration connectTimeout;
+    private Duration readTimeout;
+}
 ```
 
-- One properties class per concern, located in `common/properties/`
+- One properties class per concern, in `common/properties/` or beside the integration it configures
+  (e.g. `common/integrations/frankfurter/configuration/`)
+- Review check: a `@ConfigurationProperties` **record** is a finding unless an explicit registration
+  annotation is present
 
 ### Pattern 5: Concurrency Control on Balance Updates (core decision — justify in README)
 
@@ -368,7 +380,7 @@ Write an ADR in `docs/adr/` when:
 Recommendations MUST be **specific to the story or feature being reviewed**.
 
 ### Do NOT include recommendations that are:
-- Generic engineering hygiene applicable to every story (e.g. "run `mvn checkstyle:check`", "run `mvn spotless:apply`", "rename a variable for clarity")
+- Generic engineering hygiene applicable to every story (e.g. "run `mvn checkstyle:check`", "rename a variable for clarity")
 - Already covered by `CLAUDE.md` project rules (e.g. KISS, SRP, no magic numbers, no `@Value`)
 - Already enforced by the reviewer agent as standard checklist items
 

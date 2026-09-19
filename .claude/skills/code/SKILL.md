@@ -80,7 +80,7 @@ Read one existing example. Copy its structure exactly — annotations, visibilit
 **Rules (enforced — any violation is a reviewer BLOCKING):**
 - Service interface `public`; `Impl` class **package-private**
 - `@RequiredArgsConstructor` constructor injection — never `@Autowired` on fields
-- `@ConfigurationProperties` records for all config — never `@Value`
+- `@ConfigurationProperties` **classes** (mutable, setter-bound — never records) for all config, never `@Value`
 - `private static final String` for all string literals used in code
 - Money as `BigDecimal` with explicit scale and rounding mode — never `double`/`float`
 - Debit + credit + conversion-record write in one database transaction
@@ -89,7 +89,6 @@ Read one existing example. Copy its structure exactly — annotations, visibilit
 
 **After implementation:**
 ```bash
-mvn spotless:apply
 mvn checkstyle:check
 ```
 
@@ -105,8 +104,6 @@ TDD:
 - Red:   mvn test → FAILED on {TestClass}#{method} ✅
 - Green: mvn test → PASSED ✅
 - Refactor: mvn test && mvn checkstyle:check → PASSED ✅
-
-Spotless: applied ✅
 ```
 
 ---
@@ -238,7 +235,7 @@ Check `backlog/BACKLOG.md` first — never block a PR for a pre-existing tracked
 - [ ] TDD cycle followed (failing test before implementation)
 - [ ] Test naming `methodName_condition_expectedOutcome` — no `should`, no `given`
 - [ ] Test body: `// when` → `// then` → `// verify` (omit `// verify` if no meaningful mock interaction)
-- [ ] `mvn spotless:apply` applied; `mvn checkstyle:check` passes
+- [ ] `mvn checkstyle:check` passes
 
 **Reviewer output:**
 
@@ -346,7 +343,6 @@ Changed files:
 Verification:
 - mvn test:            PASSED ✅
 - mvn checkstyle:check: PASSED ✅
-- mvn spotless:apply:   Applied ✅
 - Reviewer:             APPROVED ✅
 
 Story file: backlog/stories/done/{seq}-{short-title}.story.md

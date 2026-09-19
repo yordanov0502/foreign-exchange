@@ -18,7 +18,7 @@ Current implementation status. Updated as features are completed.
 
 | Req | Requirement | Area | Priority | Status |
 |---|---|---|---|--------|
-| REQ-1 | `GET /rates?from=&to=` returns the current exchange rate | Endpoint | Critical | Open |
+| REQ-1 | `GET /rates?from=&to=` returns the current exchange rate | Endpoint | Critical | Done |
 | REQ-2 | `POST /conversions` converts an amount for a client; returns `transactionId`, amounts, rate, timestamp, updated balances | Endpoint | Critical | Open |
 | REQ-3 | `GET /conversions` — paginated history filtered by `transactionId`/`date`/`clientId` (≥ 1 filter required) | Endpoint | Critical | Open |
 | REQ-4 | `GET /clients/{clientId}/balances` returns balances per currency held | Endpoint | Critical | Done |
@@ -29,8 +29,8 @@ Current implementation status. Updated as features are completed.
 | REQ-9 | Concurrency: two simultaneous conversions for the same client never double-spend | Correctness | Critical | Open |
 | REQ-10 | `Idempotency-Key` header: replay returns the original result, no duplicate, no double-debit | Correctness | Critical | Open |
 | REQ-11 | Money modeled as `BigDecimal` with explicit scale and rounding mode | Correctness | Critical | Open |
-| REQ-12 | External rate-provider integration with timeout and graceful failure | Production | High | Open |
-| REQ-13 | Rate caching with a TTL, invalidation choice documented | Production | High | Open |
+| REQ-12 | External rate-provider integration with timeout and graceful failure | Production | High | Done |
+| REQ-13 | Rate caching with a TTL, invalidation choice documented | Production | High | Done |
 | REQ-14 | Validation: ISO-4217 currency codes, positive amounts, sane bounds, non-blank client id | Production | High | Open |
 | REQ-15 | `@ControllerAdvice` returns consistent error bodies with distinct codes, never raw stack traces | Production | High | Open |
 | REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Open |

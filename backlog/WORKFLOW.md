@@ -143,7 +143,7 @@ Package structure is **layer-first** — one bounded context, no domain subpacka
 Apply before declaring any task done:
 
 ### Code Style
-- [ ] Google Java Format applied — `mvn checkstyle:check` passes, but if the 125-character limit is unreached, code can stay on one line for readability
+- [ ] `mvn checkstyle:check` passes — but if the 125-character limit is unreached, code can stay on one line for readability
 - [ ] Explicit types — no `var` for non-obvious types
 - [ ] Test naming: `methodName_condition_expectedOutcome` — no `should` prefix, no `given` prefix
 

@@ -17,4 +17,11 @@ spring:
 
 frankfurter:
   client:
-    url: https://api.frankfurter.dev/v2/rates/
+    url: https://api.frankfurter.dev/v2
+    connect-timeout: 2s
+    read-timeout: 3s
+
+cache:
+  currency-rate-pair:
+    ttl: 3600s
+    max-size: 1000

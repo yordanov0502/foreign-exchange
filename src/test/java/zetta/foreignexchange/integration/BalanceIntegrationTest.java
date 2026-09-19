@@ -18,7 +18,7 @@ import java.math.BigDecimal;
 @Transactional
 public class BalanceIntegrationTest extends BaseIntegrationTestSetUp {
 
-    private static final String GET_CLIENT_BALANCES = "/clients/{clientId}/balances";
+    private static final String GET_CLIENT_BALANCES_URL = "/clients/{clientId}/balances";
     private static final String CLIENT_ID_PATH_VARIABLE = "{clientId}";
     private static final String CLIENT_NOT_FOUND_CODE = "CLIENT_NOT_FOUND";
     private static final String CLIENT_NOT_FOUND_MESSAGE = "Client with ID:%s was not found.";
@@ -61,11 +61,11 @@ public class BalanceIntegrationTest extends BaseIntegrationTestSetUp {
     }
 
     private String buildClientBalancesPath(String clientId) {
-        return GET_CLIENT_BALANCES.replace(CLIENT_ID_PATH_VARIABLE, clientId);
+        return GET_CLIENT_BALANCES_URL.replace(CLIENT_ID_PATH_VARIABLE, clientId);
     }
 
     private ResultActions getClientBalances(String clientId) throws Exception {
-        return mockMvc.perform(get(GET_CLIENT_BALANCES, clientId)
+        return mockMvc.perform(get(GET_CLIENT_BALANCES_URL, clientId)
                 .contentType(APPLICATION_JSON_VALUE));
     }
 }

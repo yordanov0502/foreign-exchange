@@ -1,7 +1,7 @@
 # Foreign-Exchange Service — Priority Roadmap
 
 > **Maintained by:** @planner (sequencing, status) + @architect (risk flags, blocker validation)
-> **Last updated:** 2026-09-18
+> **Last updated:** 2026-09-19
 > **Update triggers:**
 > - @planner: after every planning cycle (new story added, story moved to in-progress)
 > - @architect: after every architecture review (risk flags, blocker corrections, priority changes)
@@ -31,7 +31,7 @@ own, unrelated numbering.
 |---|---|---|---|---|---|
 | 1 | Database schema — `client_balances` + `conversions` tables designed together (columns, relationship, locking/idempotency/index columns), plus demo client/balance seed data | Critical | REQ-5 (also lays the groundwork for REQ-6, REQ-9, REQ-10, REQ-11) | — | Done |
 | 2 | `GET /clients/{clientId}/balances` | Critical | REQ-4 | Seq 1 | Done |
-| 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | Not planned |
+| 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | In Progress |
 | 4 | `POST /conversions` happy path — atomic debit/credit, response shape | Critical | REQ-2, REQ-6, REQ-11 | Seq 1, Seq 3 | Not planned |
 | 5 | Insufficient funds / unknown client / unknown currency error paths | Critical | REQ-7, REQ-8 | Seq 4 | Not planned |
 | 6 | Concurrency control on balance updates (no double-spend) | Critical | REQ-9 | Seq 4 | Not planned |
@@ -117,3 +117,57 @@ therefore mutate `BalanceEntity.amount` through explicit domain methods on the e
 `debit(BigDecimal sourceAmount)` / `credit(BigDecimal targetAmount)` — rather than a reinstated setter.
 These are the natural home for the non-negative-balance invariant behind `InsufficientFundsException`
 (Seq 5), so Seq 4 should add them rather than rediscover the missing setter as a blocker.
+
+
+### Seq 3 planning note — 2026-09-19 (user decision + compatibility spike)
+
+**The HTTP client for the Frankfurter provider is Spring Cloud OpenFeign**, by explicit user decision, for
+consistency with the `@FeignClient` style used across their other services. The story file's original
+recommendation (Spring's native `@HttpExchange` + `RestClient`) is superseded and marked as such; the
+`@architect` constraint built on it is marked **VOID** and replaced with Feign-specific constraints.
+
+The compatibility risk was real and has been retired empirically rather than argued: the latest Spring Cloud
+GA train, `2025.1.3`, is built against Spring Boot **4.0.8**, while this project runs **4.1.1** (only
+`2026.0.0-SNAPSHOT` targets 4.1, and a snapshot is not acceptable here). A spike on the 2025.1.3 train
+passed every scenario against the live provider — `200` with `BigDecimal` deserialisation, provider `404`,
+provider `422`, and a 1 ms read timeout — with all 16 existing unit tests and `mvn checkstyle:check` green.
+**Treat the 4.0.8-vs-4.1.1 skew as a known, tested risk**: `spring-cloud.version` is pinned explicitly, and
+Seq 13 must record the skew in the README.
+
+Two structural consequences for Seq 4 and beyond:
+- The provider's failure modes are translated into **provider-neutral exceptions inside
+  `common/integrations/frankfurter/exception`** (`FrankfurterGeneralException`,
+  `FrankfurterPairNotQuotableException`),
+  so no Feign type ever appears under `core/`. A timeout only reaches them via a delegating `Client` bean
+  that wraps `IOException` — an `ErrorDecoder` alone cannot see timeouts.
+- Feign infrastructure (BOM, starter, `@EnableFeignClients`, the client, its configuration, the two
+  exceptions, `FrankfurterClientProperties`, corrected `application.yaml`) is already in the working tree,
+  uncommitted, and documented in the story's "Spike Already Landed" section. Seq 3's TDD cycle still starts
+  at Red 1 for all domain behaviour.
+
+
+### Seq 3 correction — 2026-09-19 (provider contract + properties style)
+
+Three corrections to the note above, all verified against the live provider and a booted context:
+
+1. **The provider endpoint is v2's single-pair route**, not v1's `/latest`:
+   `GET https://api.frankfurter.dev/v2/rate/{base}/{quote}` returns a flat
+   `{"date":"2026-09-20","base":"USD","quote":"EUR","rate":0.86984}`. My earlier probe of `/v2/rates/`
+   (plural) 404'd and led me to wrongly conclude v2 did not exist — `/rate/` is singular. One call, one
+   rate, no keyed map lookup and no missing-entry case, which simplifies Seq 3 and Seq 4.
+2. **v2's error semantics differ from v1's and drive the error design**: an unknown or malformed currency
+   code is **`422` `invalid currency: XXX`** (never `404`), a `404` means *our* URL was malformed and must
+   therefore surface as `502` rather than being blamed on the caller, and an identical pair
+   (`/rate/USD/USD`) is a **`200` with `rate=1.0`** — a success path, not an error. The `ErrorDecoder` maps
+   `422` only.
+3. **Configuration/properties holders are mutable classes, not records** (`@Configuration` +
+   `@ConfigurationProperties` + Lombok `@Getter`/`@Setter`). This is a deliberate project convention going
+   forward, and it removes the need for `@ConfigurationPropertiesScan`: JavaBean binding works off
+   component scanning, whereas a record needs constructor binding and therefore explicit registration.
+   Any future properties holder written as a record or with `final` fields **must** be registered with
+   `@ConfigurationPropertiesScan` or `@EnableConfigurationProperties`, or it will silently fail to bind.
+
+Note that `.claude/CLAUDE.md`, `.claude/agents/architect.md`, `.claude/agents/coder.md` and
+`.claude/agents/README.md` still describe `@ConfigurationProperties` **records** in `common/properties/`,
+while the code now uses classes in `common/integrations/frankfurter/configuration/`. Those documents are
+the user's own convention files and were left untouched pending a decision.

@@ -351,7 +351,6 @@ Before approving:
 - [ ] Cyclomatic complexity ≤ 10; max 3 return statements per method
 - [ ] Line length ≤ 125; no tabs; annotations on own line
 - [ ] No duplicate string literals; string equality via `.equals()`
-- [ ] Spotless applied: `mvn spotless:apply`
 - [ ] Checkstyle passes: `mvn checkstyle:check`
 - [ ] All blocking comments addressed
 
@@ -404,7 +403,7 @@ After completing all checklist steps, produce a structured report using this tem
 
 - [ ] [Issue #1 fix]
 - [ ] [Issue #2 fix]
-- [ ] Re-run `mvn checkstyle:check` and `mvn spotless:apply` after changes
+- [ ] Re-run `mvn checkstyle:check` after changes
 - [ ] Re-request review after all BLOCKING issues are resolved
 ```
 

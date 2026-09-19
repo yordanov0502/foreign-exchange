@@ -45,7 +45,7 @@ sense / communication).]
 - MUST NOT include generic/shared rules like:
     - Running unit tests
     - Maven commands (e.g. `mvn clean install`)
-    - Code formatting (Spotless, linting, etc.)
+    - Code formatting and linting
     - "code compiles"
     - These are **implicit engineering standards**, not story-level criteria
 

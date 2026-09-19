@@ -30,7 +30,7 @@ When invoked, I:
 1. **Read before writing** — find an existing similar class in the codebase and follow its exact pattern
 2. **TDD** — write a failing test first, then write the minimum code to make it pass, then refactor
 3. **Place code correctly** — right layer, right package (see `CLAUDE.md` — this project is layer-first, single bounded context)
-4. **Format and lint** — before declaring done: `mvn spotless:apply`, then `mvn checkstyle:check` must pass
+4. **Lint** — before declaring done: `mvn checkstyle:check` must pass (there is no auto-formatter; match the surrounding file's style by hand)
 5. **Keep Impls package-private** — service `*Impl` classes are never `public`
 6. **Update output-asserting tests** — when I add or modify fields on any model serialized into an API response or persisted entity, I update all existing tests that assert those outputs to cover the new fields
 7. **Use descriptive names** — all variables, parameters, and lambda parameters MUST reflect their type or role; forbidden: `roi`, `arg`, `res`, `e`, `s`, `t`, `obj`, `val`, single letters (except loop counters `i`, `j`)
@@ -320,17 +320,33 @@ public class ApiExceptionHandler {
 ### @ConfigurationProperties
 
 ```java
-// ✅ Record (immutable) for properties
+// ✅ Mutable CLASS for properties — never a record
+// ✅ @Configuration (or @Component) makes component scanning register it: no @ConfigurationPropertiesScan
 // ✅ Prefix matches application.yaml key prefix exactly
+@Configuration
 @ConfigurationProperties(prefix = "frankfurter.client")
-public record FrankfurterClientProperties(String baseUrl, Duration connectTimeout, Duration readTimeout) {}
+@Getter
+@Setter
+public class FrankfurterProperties {
+
+    private String url;
+    private Duration connectTimeout;
+    private Duration readTimeout;
+}
 ```
 
 **Rules:**
-- Always a `record` (immutable)
-- Registered via `@EnableConfigurationProperties` on the main app class or a `@Configuration`
+- Always a **class** with a no-arg constructor and setters (Lombok `@Getter`/`@Setter`) — **never a record**
+- A record binds by constructor binding and therefore *requires* `@ConfigurationPropertiesScan` or
+  `@EnableConfigurationProperties`; without it the context starts and then the first dependent bean fails
+  with `No qualifying bean of type '...Properties'`. The class form avoids that trap entirely
 - Never use `@Value` — always `@ConfigurationProperties`
-- Located in `common/properties/`
+- Located in `common/properties/`, or beside the integration it configures
+  (`common/integrations/{provider}/configuration/`)
+
+> Third-party API **response** models are the opposite: keep those as `record`s. Jackson fully supports
+> records and their annotations (`@JsonProperty`, `@JsonInclude`, `@JsonAlias`, `@JsonIgnoreProperties`,
+> `@JsonNaming`) — verified on this classpath.
 
 ---
 
@@ -409,7 +425,7 @@ class ConversionIntegrationTest extends BaseIntegrationTestSetUp {
         convert("CLIENT-001", request)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.transactionId").exists())
-                .andExpect(jsonPath("$.sourceCurrency").value("USD"));
+                .andExpect(jsonPath("$.baseCurrency").value("USD"));
     }
 
     @Test
@@ -499,10 +515,7 @@ if (currency.equals("USD")) { ... }
 ## Build Commands
 
 ```bash
-# Format changed Java files (MUST do before declaring any task done)
-mvn spotless:apply
-
-# Check style (must pass — no violations allowed)
+# Check style (MUST pass before declaring any task done — no violations allowed)
 mvn checkstyle:check
 
 # Build and run all tests

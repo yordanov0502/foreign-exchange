@@ -81,7 +81,7 @@ and update `BACKLOG.md` + `PRIORITY.md`.
 Every story must satisfy these before it moves to `stories/done/`:
 
 - [ ] All unit tests pass — `mvn test`
-- [ ] `mvn checkstyle:check` passes (Google Java Format)
+- [ ] `mvn checkstyle:check` passes
 - [ ] No secrets or credential values in logs
 - [ ] The assignment requirement this story addresses is explicitly verified in a test assertion
 - [ ] PR reviewed and merged

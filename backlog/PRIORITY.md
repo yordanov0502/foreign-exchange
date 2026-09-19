@@ -31,7 +31,7 @@ own, unrelated numbering.
 |---|---|---|---|---|---|
 | 1 | Database schema — `client_balances` + `conversions` tables designed together (columns, relationship, locking/idempotency/index columns), plus demo client/balance seed data | Critical | REQ-5 (also lays the groundwork for REQ-6, REQ-9, REQ-10, REQ-11) | — | Done |
 | 2 | `GET /clients/{clientId}/balances` | Critical | REQ-4 | Seq 1 | Done |
-| 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | In Progress |
+| 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | Done |
 | 4 | `POST /conversions` happy path — atomic debit/credit, response shape | Critical | REQ-2, REQ-6, REQ-11 | Seq 1, Seq 3 | Not planned |
 | 5 | Insufficient funds / unknown client / unknown currency error paths | Critical | REQ-7, REQ-8 | Seq 4 | Not planned |
 | 6 | Concurrency control on balance updates (no double-spend) | Critical | REQ-9 | Seq 4 | Not planned |

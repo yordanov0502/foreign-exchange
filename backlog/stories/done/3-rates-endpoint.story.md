@@ -4,7 +4,7 @@
 |---|---|
 | Story Points | 5 |
 | Priority | Critical |
-| Status | In Progress |
+| Status | Done |
 
 **Story points rationale:** this is the first vertical slice that leaves the database behind and crosses
 the network. It spans three layers (`rest`, `core`, `common`), stands up four things the service has never

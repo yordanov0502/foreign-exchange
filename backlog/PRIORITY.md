@@ -41,7 +41,7 @@ own, unrelated numbering.
 | 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Done |
 | 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Done |
 | 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Done |
-| 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
+| 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Done |
 
 ---
 
@@ -338,3 +338,19 @@ local boot OK. No env vars are required for either flow — the demo credentials
 files; Seq 13's README must document them (and may present overriding them as optional).
 
 Remaining open: Seq 13 / REQ-21 (README) only.
+
+### Seq 13 closed — 2026-09-21 (README written and fact-checked)
+
+**Seq 13 → Done; REQ-21 `Open → Done`.** `README.md` (repo root, 309 lines) written via the tech-writer
+agent and fact-checked line by line against the code: run instructions for both flows (compose /
+`mvnw spring-boot:run`) with the exact commands verified end-to-end against a fresh `git clone` from
+GitHub (seeded balances 200, live `POST /conversions` 201 from inside the container); demo-client table
+matches `V2`; the pessimistic-locking section quotes the real `BalanceRepository` lock and the
+fixed-currency-order double-lock rationale, with the `@Version` (dropped in `V5`) and single-writer
+alternatives argued; idempotency documents the pre-check → partial unique index →
+`DataIntegrityViolationException` recovery chain; caching documents pure-TTL expiry as the invalidation
+choice; the trade-offs section records the Spring Cloud 4.0.8-vs-Boot 4.1.1 skew, the source/target vs
+base/quote wire asymmetry, SAME_CURRENCY rejection, the no-JaCoCo gap, in-image test skipping and the
+unpinned `postgres:latest`; "What's next" lists five prioritised items. Every requirement row in
+`BACKLOG.md` is now Done. Remaining outside the tracker: commit `README.md` + these backlog updates,
+and merge the branch.

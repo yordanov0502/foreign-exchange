@@ -36,8 +36,8 @@ Current implementation status. Updated as features are completed.
 | REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Done |
 | REQ-17 | Unit tests for conversion logic + at least one integration test through the Spring context | Testing | Critical | Done |
 | REQ-18 | Idempotency replay, insufficient funds, and happy-path debit/credit explicitly tested | Testing | Critical | Done |
-| REQ-19 | `docker compose up` boots the service with no manual setup beyond documented env vars | Production | High | Open |
-| REQ-20 | Dockerfile — multi-stage build, non-root user | Production | Medium | Open |
+| REQ-19 | `docker compose up` boots the service with no manual setup beyond documented env vars | Production | High | Done |
+| REQ-20 | Dockerfile — multi-stage build, non-root user | Production | Medium | Done |
 | REQ-21 | README explains how to run it, trade-offs, the concurrency choice, and what's next | Communication | Critical | Open |
 
 ---

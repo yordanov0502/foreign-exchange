@@ -39,7 +39,7 @@ own, unrelated numbering.
 | 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Done |
 | 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Done |
 | 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Done |
-| 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |
+| 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Done |
 | 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Done |
 | 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
 
@@ -306,3 +306,35 @@ Honest gap, accepted: the > 80% coverage threshold in `.claude/CLAUDE.md` is not
 there is no JaCoCo (or other coverage) plugin in `pom.xml`. Closing Seq 12 rests on the named-scenario
 audit above, not on a measured percentage. Adding JaCoCo remains an optional hardening item if the
 number is wanted for the README.
+
+### Seq 11 closed — 2026-09-21 (Dockerfile + compose wiring, verified end to end)
+
+**Seq 11 → Done; REQ-19 and REQ-20 `Open → Done`.** Files: `Dockerfile`, `docker-compose.override.yaml`,
+`.dockerignore`, plus `spring.docker.compose.file: docker-compose.yaml` pinned in `application.yaml`.
+
+**The one structural decision — override file, not one merged compose file.** The assignment needs a
+plain `docker compose up` to boot app + postgres, while `./mvnw spring-boot:run` (the existing dev flow,
+protected by the Backward Compatibility rule) must keep starting *only* postgres. Docker Compose merges
+`docker-compose.override.yaml` automatically **only when no `--file` is given**; Spring Boot's compose
+support always passes `--file` (now pinned explicitly). So: `docker-compose.yaml` stays the dev/postgres
+file, the override adds the `app` service (built from `Dockerfile`, `SPRING_DATASOURCE_*` pointed at the
+`postgres` service DNS name, `SPRING_DOCKER_COMPOSE_ENABLED=false` so the app never looks for a Docker
+daemon inside its own container) and a `pg_isready` healthcheck that gates app start via
+`depends_on: condition: service_healthy`.
+
+**Dockerfile hygiene** (per the brief's "multi-stage build, non-root user" and the "container hygiene"
+grading axis): build stage `maven:3.9-eclipse-temurin-21` with `dependency:go-offline` in its own layer
+for cacheable rebuilds and `-DskipTests` (the suite needs a Docker daemon for Testcontainers, unavailable
+mid-build); runtime stage `eclipse-temurin:21-jre-alpine` — JRE only, no toolchain — with a dedicated
+`spring` system user/group, the jar left root-owned so the process cannot overwrite its own binary,
+`-XX:MaxRAMPercentage=75.0` for container-aware heap sizing. The Maven build runs `package`, which stops
+short of `verify`, so Checkstyle does not run in-image (it is enforced in dev/CI).
+
+**Verified, both flows:** `docker compose up -d --build` → postgres healthy → app started; inside the
+container `whoami` = `spring`, `GET /clients/CLIENT-001/balances` = 200 with seeded (Flyway-migrated)
+balances, `/v3/api-docs` = 200. Then `./mvnw spring-boot:run` → log shows
+`Using Docker Compose file ...docker-compose.yaml`, only postgres started (app container stayed exited),
+local boot OK. No env vars are required for either flow — the demo credentials are baked into the compose
+files; Seq 13's README must document them (and may present overriding them as optional).
+
+Remaining open: Seq 13 / REQ-21 (README) only.

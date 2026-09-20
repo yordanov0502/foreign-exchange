@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: foreign-exchange
+  docker:
+    compose:
+      # Dev-time only (mvnw spring-boot:run): start just postgres, never the app service that
+      # docker-compose.override.yaml adds for the self-contained `docker compose up` flow.
+      file: docker-compose.yaml
   jpa:
     hibernate:
       ddl-auto: validate

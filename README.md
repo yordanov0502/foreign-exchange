@@ -38,7 +38,9 @@ up:
 - Swagger UI is on `http://localhost:8081/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`)
 
 Stop with `Ctrl+C`. Remove the containers with `docker compose down`, or `docker compose down -v` to also
-drop the Postgres data volume (undoing the seeded demo data).
+drop the Postgres data volume (undoing the seeded demo data). If a boot ever fails with a Flyway
+`Migration checksum mismatch` (a database volume left over from an older checkout), `docker compose down -v`
+followed by `docker compose up` resets to a cleanly migrated state.
 
 No environment variables need to be set for this flow. `docker-compose.yaml` (the Postgres service) and
 `docker-compose.override.yaml` (the `app` service, built from the `Dockerfile`) are merged automatically
@@ -98,10 +100,16 @@ have data to convert immediately:
 | `CLIENT-001` | USD | 10,000.0000 |
 | `CLIENT-001` | EUR | 8,000.0000 |
 | `CLIENT-002` | GBP | 5,000.0000 |
+| `CLIENT-002` | CHF | 3,000.0000 |
 
-`CLIENT-001` can convert USD↔EUR immediately. Converting into a currency a client doesn't already hold
+`CLIENT-001` can convert USD↔EUR immediately, and `CLIENT-002` GBP↔CHF. Converting into a currency a
+client doesn't already hold
 (e.g. `CLIENT-002` GBP→EUR) returns `404 BALANCE_NOT_FOUND` — the service only debits/credits balance
-rows that already exist for that client, it does not open new ones on the fly.
+rows that already exist for that client, it does not open new ones on the fly. The same applies on the
+source side (converting *from* a currency the client holds no balance in is also `404 BALANCE_NOT_FOUND`);
+auto-creating a zero-balance target row on first credit would have been a defensible alternative reading
+of the spec, but rejecting both sides with 404 was the deliberate choice, so the set of currencies a
+client holds stays under explicit (seeded) control.
 
 ## API overview
 

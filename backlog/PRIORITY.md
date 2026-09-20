@@ -40,7 +40,7 @@ own, unrelated numbering.
 | 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Done |
 | 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Done |
 | 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |
-| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Not planned |
+| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Done |
 | 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
 
 ---
@@ -282,3 +282,27 @@ the Seq 4 hardening notes above, so the row was pure bookkeeping. No code was wr
 Known, accepted gap (not stale data, deliberately left out of scope): the 400 responses produced by
 bean validation (`FIELD_ERROR` / `VALIDATION_FAILED` / `MALFORMED_REQUEST` on bad bodies or missing
 `from`/`to` params) are documented on `GET /conversions` but not on `POST /conversions` or `GET /rates`.
+
+### Seq 12 closed — 2026-09-21 (explicit user decision, checkpoint verified)
+
+**Seq 12 → Done.** The checkpoint's purpose was to confirm the assignment's explicitly-called-out
+scenarios are asserted by name, not just implicitly covered. Verified against the suite (179 tests,
+0 failures, full run 2026-09-21):
+
+- **Idempotency replay** — unit: `convert_withReplayedIdempotencyKey_returnOriginalConversionWithoutSecondDebit`
+  (+ cross-client, conflict and concurrent-duplicate variants in `ConversionServiceTest`); full-stack:
+  `createConversion_withReplayedIdempotencyKey_returnOriginalConversion` and
+  `...ForDifferentAmount_returnConflict` in `ConversionIntegrationTest`.
+- **Insufficient funds** — unit: `ConversionServiceTest` and
+  `processConversion_withInsufficientSourceBalance_throwInsufficientFundsExceptionAndPersistNothing`;
+  full-stack: `createConversion_withInsufficientFunds_returnUnprocessableContentAndPersistNoConversion`.
+- **Happy-path debit/credit** — full-stack:
+  `createConversion_withSufficientFunds_returnConversionAndUpdatedBalances`.
+- **Concurrency** — `ConversionConcurrencyIntegrationTest`: parallel requests exceeding balance persist
+  only one conversion (no double-spend), parallel affordable requests debit both without a lost update,
+  parallel requests sharing an idempotency key persist only one.
+
+Honest gap, accepted: the > 80% coverage threshold in `.claude/CLAUDE.md` is not machine-verified —
+there is no JaCoCo (or other coverage) plugin in `pom.xml`. Closing Seq 12 rests on the named-scenario
+audit above, not on a measured percentage. Adding JaCoCo remains an optional hardening item if the
+number is wanted for the README.

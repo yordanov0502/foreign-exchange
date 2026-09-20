@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
  * container — across every test class extending this one.
  *
  * <p>The {@code test} profile adds {@code classpath:db/testdata} to the Flyway locations, so the
- * integration-test fixtures in {@code V900} are applied on top of the production migrations. Each test runs
+ * integration-test fixtures in {@code V900} and {@code V901} are applied on top of the production migrations. Each test runs
  * in a transaction that is rolled back afterwards, so those fixtures — and the seeded demo clients — stay
  * intact for every other test in the run.
  */
@@ -33,6 +33,8 @@ public abstract class BaseIntegrationTestSetUp {
     protected static final String CLIENT_CONCURRENT_INSUFFICIENT_FUNDS_ID = "CLIENT-TEST-CONCURRENCY-001";
     protected static final String CLIENT_CONCURRENT_SUFFICIENT_FUNDS_ID = "CLIENT-TEST-CONCURRENCY-002";
     protected static final String CLIENT_CONCURRENT_SHARED_IDEMPOTENCY_KEY_ID = "CLIENT-TEST-CONCURRENCY-003";
+    protected static final String CLIENT_TEST_HISTORY_FIRST_ID = "CLIENT-TEST-HISTORY-001";
+    protected static final String CLIENT_TEST_HISTORY_SECOND_ID = "CLIENT-TEST-HISTORY-002";
 
     @Autowired
     protected MockMvc mockMvc;

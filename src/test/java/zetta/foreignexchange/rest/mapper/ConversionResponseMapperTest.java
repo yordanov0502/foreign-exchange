@@ -25,6 +25,7 @@ class ConversionResponseMapperTest {
 
     private static final String USD = "USD";
     private static final String EUR = "EUR";
+    private static final String CLIENT_ID = "CLIENT-001";
     private static final BigDecimal BASE_AMOUNT = new BigDecimal("100.0000");
     private static final BigDecimal QUOTE_AMOUNT = new BigDecimal("86.9840");
     private static final BigDecimal RATE = new BigDecimal("0.86984");
@@ -48,7 +49,8 @@ class ConversionResponseMapperTest {
 
     @Test
     void mapToConversionResponse_withConversionResultAndBalances_mapEveryField() {
-        Conversion conversion = new Conversion(TRANSACTION_ID, USD, BASE_AMOUNT, EUR, QUOTE_AMOUNT, RATE, TIMESTAMP);
+        Conversion conversion =
+                new Conversion(TRANSACTION_ID, CLIENT_ID, USD, BASE_AMOUNT, EUR, QUOTE_AMOUNT, RATE, TIMESTAMP);
         List<Balance> updatedBalances = List.of(new Balance(EUR, QUOTE_AMOUNT), new Balance(USD, BASE_AMOUNT));
         ConversionResult conversionResult = new ConversionResult(conversion, updatedBalances);
 
@@ -69,7 +71,8 @@ class ConversionResponseMapperTest {
 
     @Test
     void mapToConversionResponse_withEmptyBalanceList_returnResponseWithEmptyBalances() {
-        Conversion conversion = new Conversion(TRANSACTION_ID, USD, BASE_AMOUNT, EUR, QUOTE_AMOUNT, RATE, TIMESTAMP);
+        Conversion conversion =
+                new Conversion(TRANSACTION_ID, CLIENT_ID, USD, BASE_AMOUNT, EUR, QUOTE_AMOUNT, RATE, TIMESTAMP);
         ConversionResult conversionResult = new ConversionResult(conversion, List.of());
 
         ConversionResponse conversionResponse = conversionResponseMapper.mapToConversionResponse(conversionResult);
@@ -113,5 +116,6 @@ class ConversionResponseMapperTest {
         assertTrue(json.contains("\"targetAmount\":86.9840"));
         assertTrue(!json.contains("baseCurrency"));
         assertTrue(!json.contains("quoteCurrency"));
+        assertTrue(!json.contains("clientId"));
     }
 }

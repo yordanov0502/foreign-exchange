@@ -15,8 +15,10 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import zetta.foreignexchange.core.exception.BalanceNotFoundException;
 import zetta.foreignexchange.core.exception.ClientNotFoundException;
+import zetta.foreignexchange.core.exception.ConversionFilterRequiredException;
 import zetta.foreignexchange.core.exception.ExchangeRateUnavailableException;
 import zetta.foreignexchange.core.exception.IdempotencyKeyConflictException;
 import zetta.foreignexchange.core.exception.InsufficientFundsException;
@@ -46,6 +48,8 @@ public class ForeignExchangeControllerAdvice {
     private static final String FIELD_ERROR_MESSAGE =
             "Either you submitted a request that is missing a mandatory field or the value of a field does not match " +
                     "the format expected.";
+    private static final String CONVERSION_FILTER_REQUIRED_MESSAGE =
+            "At least one of transactionId, date or clientId must be supplied.";
 
     private static final Map<ErrorCode, HttpStatus> STATUS_BY_ERROR_CODE = Map.ofEntries(
             Map.entry(ErrorCode.CLIENT_NOT_FOUND, HttpStatus.NOT_FOUND),
@@ -58,7 +62,8 @@ public class ForeignExchangeControllerAdvice {
             Map.entry(ErrorCode.FIELD_ERROR, HttpStatus.BAD_REQUEST),
             Map.entry(ErrorCode.VALIDATION_FAILED, HttpStatus.BAD_REQUEST),
             Map.entry(ErrorCode.MALFORMED_REQUEST, HttpStatus.BAD_REQUEST),
-            Map.entry(ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR));
+            Map.entry(ErrorCode.INTERNAL_SERVER_ERROR, HttpStatus.INTERNAL_SERVER_ERROR),
+            Map.entry(ErrorCode.CONVERSION_FILTER_REQUIRED, HttpStatus.BAD_REQUEST));
 
     @ExceptionHandler(ClientNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleClientNotFoundException(
@@ -141,10 +146,7 @@ public class ForeignExchangeControllerAdvice {
             MethodArgumentNotValidException exception, HttpServletRequest request) {
 
         log.error("MethodArgumentNotValidException thrown", exception);
-        return buildErrorResponse(
-                ErrorCode.FIELD_ERROR,
-                FIELD_ERROR_MESSAGE,
-                request);
+        return buildErrorResponse(ErrorCode.FIELD_ERROR, FIELD_ERROR_MESSAGE, request);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
@@ -197,6 +199,22 @@ public class ForeignExchangeControllerAdvice {
 
         log.error("HttpMessageNotReadableException thrown", exception);
         return buildErrorResponse(ErrorCode.MALFORMED_REQUEST, MALFORMED_REQUEST_MESSAGE, request);
+    }
+
+    @ExceptionHandler(ConversionFilterRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleConversionFilterRequiredException(
+            ConversionFilterRequiredException exception, HttpServletRequest request) {
+
+        log.error("ConversionFilterRequiredException thrown", exception);
+        return buildErrorResponse(ErrorCode.CONVERSION_FILTER_REQUIRED, CONVERSION_FILTER_REQUIRED_MESSAGE, request);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException exception, HttpServletRequest request) {
+
+        log.error("MethodArgumentTypeMismatchException thrown", exception);
+        return buildErrorResponse(ErrorCode.FIELD_ERROR, FIELD_ERROR_MESSAGE, request);
     }
 
     @ExceptionHandler(Exception.class)

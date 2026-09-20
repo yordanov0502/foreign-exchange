@@ -2,10 +2,19 @@ package zetta.foreignexchange.core.service.implementation;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import zetta.foreignexchange.core.exception.ClientNotFoundException;
+import zetta.foreignexchange.core.exception.ConversionFilterRequiredException;
 import zetta.foreignexchange.core.exception.IdempotencyKeyConflictException;
+import zetta.foreignexchange.core.mapper.ConversionMapper;
 import zetta.foreignexchange.core.model.Conversion;
+import zetta.foreignexchange.core.model.ConversionHistoryQuery;
 import zetta.foreignexchange.core.model.ConversionInput;
 import zetta.foreignexchange.core.model.ConversionResult;
 import zetta.foreignexchange.core.model.ExchangeRate;
@@ -13,18 +22,31 @@ import zetta.foreignexchange.core.processor.ConversionProcessor;
 import zetta.foreignexchange.core.service.ConversionService;
 import zetta.foreignexchange.core.service.RateService;
 import zetta.foreignexchange.core.validator.CurrencyValidator;
+import zetta.foreignexchange.persistence.constant.ConversionAttributeConstant;
+import zetta.foreignexchange.persistence.entity.ConversionEntity;
 import zetta.foreignexchange.persistence.repository.ClientRepository;
+import zetta.foreignexchange.persistence.repository.ConversionRepository;
+import zetta.foreignexchange.persistence.specification.ConversionSpecification;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 class ConversionServiceImpl implements ConversionService {
 
+    private static final Sort CONVERSION_HISTORY_SORT = Sort
+            .by(Sort.Direction.DESC, ConversionAttributeConstant.CREATED_AT)
+            .and(Sort.by(Sort.Direction.DESC, ConversionAttributeConstant.ID));
+
     private final CurrencyValidator currencyValidator;
     private final ClientRepository clientRepository;
     private final RateService rateService;
     private final ConversionProcessor conversionProcessor;
+    private final ConversionRepository conversionRepository;
+    private final ConversionMapper conversionMapper;
 
     @Override
     public ConversionResult convert(ConversionInput conversionInput) {
@@ -40,6 +62,19 @@ class ConversionServiceImpl implements ConversionService {
                 conversionInput.baseCurrency(), conversionInput.quoteCurrency());
 
         return processConversion(conversionInput, exchangeRate);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Conversion> getConversionHistory(ConversionHistoryQuery conversionHistoryQuery) {
+        validateAtLeastOneFilterSupplied(conversionHistoryQuery);
+
+        Specification<ConversionEntity> conversionSpecification = buildConversionSpecification(conversionHistoryQuery);
+        Pageable pageable =
+                PageRequest.of(conversionHistoryQuery.page(), conversionHistoryQuery.size(), CONVERSION_HISTORY_SORT);
+
+        Page<ConversionEntity> conversionEntityPage = conversionRepository.findAll(conversionSpecification, pageable);
+        return conversionEntityPage.map(conversionMapper::mapToConversion);
     }
 
     /**
@@ -90,5 +125,38 @@ class ConversionServiceImpl implements ConversionService {
         if (!clientRepository.existsByClientId(clientId)) {
             throw new ClientNotFoundException(clientId);
         }
+    }
+
+    private void validateAtLeastOneFilterSupplied(ConversionHistoryQuery conversionHistoryQuery) {
+        boolean noFilterSupplied = conversionHistoryQuery.transactionId() == null
+                && conversionHistoryQuery.date() == null
+                && conversionHistoryQuery.clientId() == null;
+
+        if (noFilterSupplied) {
+            throw new ConversionFilterRequiredException();
+        }
+    }
+
+    private Specification<ConversionEntity> buildConversionSpecification(ConversionHistoryQuery conversionHistoryQuery) {
+        DayRange dayRange = computeDayRange(conversionHistoryQuery.date());
+
+        return Specification.allOf(
+                ConversionSpecification.hasTransactionId(conversionHistoryQuery.transactionId()),
+                ConversionSpecification.hasClientId(conversionHistoryQuery.clientId()),
+                ConversionSpecification.isCreatedOnOrAfter(dayRange.startOfDay()),
+                ConversionSpecification.isCreatedBefore(dayRange.startOfNextDay()));
+    }
+
+    private DayRange computeDayRange(LocalDate date) {
+        if (date == null) {
+            return new DayRange(null, null);
+        }
+
+        OffsetDateTime startOfDay = date.atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime startOfNextDay = date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        return new DayRange(startOfDay, startOfNextDay);
+    }
+
+    private record DayRange(OffsetDateTime startOfDay, OffsetDateTime startOfNextDay) {
     }
 }

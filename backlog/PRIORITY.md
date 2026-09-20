@@ -36,7 +36,7 @@ own, unrelated numbering.
 | 5 | ~~Insufficient funds / unknown client / unknown currency error paths~~ | Critical | REQ-7, REQ-8 | Seq 4 | Merged into Seq 4 |
 | 6 | ~~Concurrency control on balance updates (no double-spend)~~ | Critical | REQ-9 | Seq 4 | Merged into Seq 4 |
 | 7 | ~~`Idempotency-Key` replay handling~~ | Critical | REQ-10 | Seq 4 | Merged into Seq 4 |
-| 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Not planned |
+| 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Done |
 | 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Not planned |
 | 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Not planned |
 | 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |

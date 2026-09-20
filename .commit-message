@@ -1,0 +1,18 @@
+feat(conversions): GET /conversions paginated, filtered history
+
+What: Adds the GET /conversions endpoint returning a paginated conversion history
+filtered by transactionId, date (whole UTC day) and/or clientId (at least one
+required, else 400 CONVERSION_FILTER_REQUIRED). Query composed via
+JpaSpecificationExecutor with per-filter Specification factories, @EntityGraph
+fetch of the client association, stable createdAt DESC/id DESC sort, and a
+dedicated response envelope (no Spring Page on the wire). Conversion domain
+record gains clientId; POST /conversions wire format unchanged.
+Why: Closes REQ-3 (.claude/Java-Assignment.pdf — GET /conversions?transactionId=
+&date=&clientId=&page=&size=), the last unclosed endpoint requirement.
+Tested: ConversionHistoryIntegrationTest (17 full-stack cases incl. UTC-day
+boundary, AND-combined filters, empty-match, paging bounds/defaults/stability,
+malformed and non-numeric inputs), ConversionServiceTest, ConversionControllerTest,
+ForeignExchangeControllerAdviceTest, mapper tests. Full suite 158/158,
+checkstyle 0 violations.
+
+Co-Authored-By: Claude <noreply@anthropic.com>

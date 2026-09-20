@@ -20,7 +20,7 @@ Current implementation status. Updated as features are completed.
 |---|---|---|---|--------|
 | REQ-1 | `GET /rates?from=&to=` returns the current exchange rate | Endpoint | Critical | Done |
 | REQ-2 | `POST /conversions` converts an amount for a client; returns `transactionId`, amounts, rate, timestamp, updated balances | Endpoint | Critical | Done |
-| REQ-3 | `GET /conversions` — paginated history filtered by `transactionId`/`date`/`clientId` (≥ 1 filter required) | Endpoint | Critical | Open |
+| REQ-3 | `GET /conversions` — paginated history filtered by `transactionId`/`date`/`clientId` (≥ 1 filter required) | Endpoint | Critical | Done |
 | REQ-4 | `GET /clients/{clientId}/balances` returns balances per currency held | Endpoint | Critical | Done |
 | REQ-5 | Demo clients seeded via Flyway (`CLIENT-001`, `CLIENT-002`) with documented starting balances | Data | Critical | Done |
 | REQ-6 | Debit + credit + conversion record are atomic — one DB transaction | Correctness | Critical | Done |

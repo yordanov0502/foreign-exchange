@@ -32,8 +32,8 @@ public class RateController {
 
     @Operation(
             summary = "Get the current exchange rate for a currency pair",
-            description = "Rates are fetched from 3rd party provider."
-                    + "An identical source and target currency is a valid quote of 1.")
+            description = "Rates are fetched from 3rd party provider. "
+                    + "An identical source and target currency is rejected as SAME_CURRENCY.")
     @ApiResponses({
         @ApiResponse(
                 responseCode = "200",
@@ -52,19 +52,33 @@ public class RateController {
                                 """))),
         @ApiResponse(
                 responseCode = "422",
-                description = "A currency code is not a valid ISO-4217 code or is malformed",
+                description = "A currency code is not a valid ISO-4217 code, is malformed, "
+                        + "or the source and target currency are identical",
                 content = @Content(
                         mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                         schema = @Schema(implementation = ErrorResponse.class),
-                        examples = @ExampleObject(
-                                value = """
-                                {
-                                  "code": "UNSUPPORTED_CURRENCY_PAIR",
-                                  "message": "Currency pair USD/XXX is not supported.",
-                                  "status": 422,
-                                  "path": "/rates"
-                                }
-                                """))),
+                        examples = {
+                            @ExampleObject(
+                                    name = "UNSUPPORTED_CURRENCY_PAIR",
+                                    value = """
+                                    {
+                                      "code": "UNSUPPORTED_CURRENCY_PAIR",
+                                      "message": "Currency pair USD/XXX is not supported.",
+                                      "status": 422,
+                                      "path": "/rates"
+                                    }
+                                    """),
+                            @ExampleObject(
+                                    name = "SAME_CURRENCY",
+                                    value = """
+                                    {
+                                      "code": "SAME_CURRENCY",
+                                      "message": "Currency pair USD/USD must contain two different currencies.",
+                                      "status": 422,
+                                      "path": "/rates"
+                                    }
+                                    """)
+                        })),
         @ApiResponse(
                 responseCode = "502",
                 description = "The rate provider timed out, was unreachable or returned an unusable answer",

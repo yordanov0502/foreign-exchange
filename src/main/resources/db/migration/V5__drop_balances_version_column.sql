@@ -1,0 +1,1 @@
+ALTER TABLE balances DROP COLUMN IF EXISTS version;

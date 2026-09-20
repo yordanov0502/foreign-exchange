@@ -3,7 +3,10 @@ package zetta.foreignexchange.rest.controller;
 import static org.instancio.Select.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import org.instancio.Instancio;
@@ -16,6 +19,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import zetta.foreignexchange.core.exception.SameCurrencyException;
 import zetta.foreignexchange.core.model.ExchangeRate;
 import zetta.foreignexchange.core.service.RateService;
 import zetta.foreignexchange.rest.mapper.ExchangeRateResponseMapper;
@@ -66,23 +70,19 @@ public class RateControllerTest {
     }
 
     @Test
-    void getExchangeRate_withIdenticalCurrencyPair_returnExchangeRateResponse() {
-        ExchangeRate exchangeRate = Instancio.of(ExchangeRate.class)
-                .set(field(ExchangeRate::baseCurrency), USD)
-                .set(field(ExchangeRate::quoteCurrency), USD)
-                .set(field(ExchangeRate::rate), BigDecimal.ONE)
-                .create();
+    void getExchangeRate_withIdenticalCurrencyPair_throwSameCurrencyException() {
+        SameCurrencyException sameCurrencyException = new SameCurrencyException(USD, USD);
 
         when(rateService.getExchangeRate(USD, USD))
-                .thenReturn(exchangeRate);
+                .thenThrow(sameCurrencyException);
 
-        ResponseEntity<ExchangeRateResponse> response = rateController.getExchangeRate(USD, USD);
+        SameCurrencyException exception = assertThrows(
+                SameCurrencyException.class,
+                () -> rateController.getExchangeRate(USD, USD));
 
-        assertNotNull(response.getBody());
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(0, response.getBody().rate().compareTo(BigDecimal.ONE));
+        assertSame(sameCurrencyException, exception);
 
         verify(rateService).getExchangeRate(USD, USD);
-        verify(exchangeRateResponseMapper).mapToExchangeRateResponse(exchangeRate);
+        verifyNoInteractions(exchangeRateResponseMapper);
     }
 }

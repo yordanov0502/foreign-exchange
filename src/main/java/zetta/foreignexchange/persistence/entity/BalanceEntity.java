@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -43,10 +42,6 @@ public class BalanceEntity {
     @Column(nullable = false, precision = EntityConstant.MONEY_PRECISION, scale = EntityConstant.MONEY_SCALE)
     private BigDecimal amount;
 
-    @Version
-    @Column(nullable = false)
-    private Long version;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -54,4 +49,16 @@ public class BalanceEntity {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public void debit(BigDecimal baseAmount) {
+        if (this.amount.compareTo(baseAmount) < 0) {
+            throw new IllegalStateException(
+                    "Balance " + currency + " cannot be debited below zero.");
+        }
+        this.amount = this.amount.subtract(baseAmount);
+    }
+
+    public void credit(BigDecimal quoteAmount) {
+        this.amount = this.amount.add(quoteAmount);
+    }
 }

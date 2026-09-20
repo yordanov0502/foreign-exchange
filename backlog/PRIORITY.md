@@ -1,7 +1,7 @@
 # Foreign-Exchange Service — Priority Roadmap
 
 > **Maintained by:** @planner (sequencing, status) + @architect (risk flags, blocker validation)
-> **Last updated:** 2026-09-19
+> **Last updated:** 2026-09-20
 > **Update triggers:**
 > - @planner: after every planning cycle (new story added, story moved to in-progress)
 > - @architect: after every architecture review (risk flags, blocker corrections, priority changes)
@@ -32,15 +32,15 @@ own, unrelated numbering.
 | 1 | Database schema — `client_balances` + `conversions` tables designed together (columns, relationship, locking/idempotency/index columns), plus demo client/balance seed data | Critical | REQ-5 (also lays the groundwork for REQ-6, REQ-9, REQ-10, REQ-11) | — | Done |
 | 2 | `GET /clients/{clientId}/balances` | Critical | REQ-4 | Seq 1 | Done |
 | 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | Done |
-| 4 | `POST /conversions` happy path — atomic debit/credit, response shape | Critical | REQ-2, REQ-6, REQ-11 | Seq 1, Seq 3 | Not planned |
-| 5 | Insufficient funds / unknown client / unknown currency error paths | Critical | REQ-7, REQ-8 | Seq 4 | Not planned |
-| 6 | Concurrency control on balance updates (no double-spend) | Critical | REQ-9 | Seq 4 | Not planned |
-| 7 | `Idempotency-Key` replay handling | Critical | REQ-10 | Seq 4 | Not planned |
+| 4 | `POST /conversions` **complete** — atomic debit/credit + response shape, insufficient-funds / not-found error paths, concurrency control, `Idempotency-Key` replay (consolidates former Seq 5, 6, 7) | Critical | REQ-2, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14, REQ-17, REQ-18 | Seq 1, Seq 3 | Done |
+| 5 | ~~Insufficient funds / unknown client / unknown currency error paths~~ | Critical | REQ-7, REQ-8 | Seq 4 | Merged into Seq 4 |
+| 6 | ~~Concurrency control on balance updates (no double-spend)~~ | Critical | REQ-9 | Seq 4 | Merged into Seq 4 |
+| 7 | ~~`Idempotency-Key` replay handling~~ | Critical | REQ-10 | Seq 4 | Merged into Seq 4 |
 | 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Not planned |
 | 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Not planned |
 | 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Not planned |
 | 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |
-| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4, 5, 6, 7 | Not planned |
+| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Not planned |
 | 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
 
 ---
@@ -63,16 +63,17 @@ own, unrelated numbering.
         │
         +──► [2] GET /clients/{clientId}/balances
         │
-        +──► [4] POST /conversions happy path ◄──── [3] GET /rates + provider + cache
+        +──► [4] POST /conversions (complete) ◄──── [3] GET /rates + provider + cache  [DONE]
+                    │      · atomic debit/credit + response shape   (was [4])
+                    │      · insufficient funds / not-found errors  (was [5])
+                    │      · concurrency control                    (was [6])
+                    │      · Idempotency-Key replay                 (was [7])
                     │
-                    ├──► [5] Insufficient funds / not-found errors
-                    ├──► [6] Concurrency control
-                    ├──► [7] Idempotency-Key replay
                     └──► [8] GET /conversions history
 
 [2]+[4] ──► [9] Global error handling + validation ──► [10] OpenAPI / Swagger UI
 [1] ──► [11] Dockerfile + docker compose
-[4]+[5]+[6]+[7] ──► [12] Test coverage hardening ──► [13] README
+[4] ──► [12] Test coverage hardening ──► [13] README
 ```
 
 ---
@@ -171,3 +172,90 @@ Note that `.claude/CLAUDE.md`, `.claude/agents/architect.md`, `.claude/agents/co
 `.claude/agents/README.md` still describe `@ConfigurationProperties` **records** in `common/properties/`,
 while the code now uses classes in `common/integrations/frankfurter/configuration/`. Those documents are
 the user's own convention files and were left untouched pending a decision.
+
+
+### Seq 5, 6, 7 consolidated into Seq 4 — 2026-09-20 (@planner, explicit user decision)
+
+**Requested explicitly by the user**, who asked for the complete `POST /conversions` endpoint —
+implementation and testing, across `rest → core → persistence` — planned as **one** story "regardless of
+story points". Seq 4 is retitled to cover the whole endpoint and now closes REQ-2, REQ-6, REQ-7, REQ-8,
+REQ-9, REQ-10 and REQ-11, contributing to REQ-14, REQ-17 and REQ-18.
+
+Seq 5, 6 and 7 are **kept as rows** (struck through, Status `Merged into Seq 4`) rather than deleted, so
+the original decomposition stays legible and nobody plans them a second time. Seq numbers remain
+permanent; Seq 8 onward are untouched.
+
+The planner's normal ≤ 8-point rule is knowingly suspended — the story is estimated at 21. The
+counter-argument the user's decision rests on: the four slices share one transaction boundary, one
+locking decision and one response shape, so splitting them would mean three successive rewrites of
+`ConversionServiceImpl` and its tests. The story file preserves Red→Green→Refactor slicing internally
+(seven ordered slices), so the discipline survives even though the merge/review unit is one story.
+
+**Blocker state verified against the code at commit `14f324c`: Seq 3 is genuinely Done.**
+`RateService.getExchangeRate(baseCurrency, quoteCurrency)` returns an `ExchangeRate` record, is
+`@Cacheable` on the Caffeine `exchangeRate` cache (TTL and max-size from `cache.currency-rate-pair`), and
+translates provider faults into `UnsupportedCurrencyPairException` (422) and
+`ExchangeRateUnavailableException` (502), both already handled in `ForeignExchangeControllerAdvice`.
+Seq 4 is therefore **unblocked** and consumes that contract directly — it neither defines nor stubs a
+rate interface of its own.
+
+**Three conventions Seq 4 must honour** (all recorded in the story file):
+
+1. **D1 — `base`/`quote` is the vocabulary everywhere in Java; the JSON wire format says
+   `source`/`target`. Decided by the user, 2026-09-20.** `V3` renamed the `conversions` columns to
+   `base_currency`/`base_amount`/`quote_currency`/`quote_amount`, and `ExchangeRate`, `RateService` and the
+   error messages all use `baseCurrency`/`quoteCurrency`. The brief names the `POST /conversions` fields
+   `sourceAmount`, `sourceCurrency`, `targetAmount`, `targetCurrency` verbatim. **Ruling:** the REST
+   records (`ConversionRequest`, `ConversionResponse`) also declare `base*`/`quote*` components, each
+   annotated `@JsonProperty("source…"/"target…")`, so Postman and Swagger show the brief's names while
+   Java stays internally consistent. `ExchangeRateResponse` is **not** re-aliased — `GET /rates` keeps
+   answering `baseCurrency`/`quoteCurrency`; the brief never names those fields and `RateIntegrationTest`
+   asserts them. The resulting wire asymmetry between the two endpoints is deliberate; Seq 13 records it.
+
+2. **D2 — identical base and quote currency is rejected on *both* endpoints, via one shared
+   `SameCurrencyException`. Decided by the user, 2026-09-20, including explicit approval of the
+   behaviour change this causes.** The rule lives in `CurrencyValidator.validateCurrencyPair` (after the
+   regex and ISO-4217 checks, so a malformed identical pair still reports `UNSUPPORTED_CURRENCY_PAIR`), so
+   both `RateServiceImpl` and `ConversionServiceImpl` get it from one place.
+
+   ⚠ **This supersedes the "Seq 3 correction" note above, point 2**, which recorded `/rate/USD/USD` →
+   `200 rate=1` as a deliberate success path. `GET /rates?from=USD&to=USD` now returns
+   `422 SAME_CURRENCY` without calling the provider. Three Seq 3 tests
+   (`RateServiceTest`, `RateControllerTest`, `RateIntegrationTest` — one identical-pair method each) and
+   `RateController`'s `@Operation` description assert or advertise the old behaviour and are rewritten as
+   part of Seq 4. REQ-1/REQ-12/REQ-13 stay `Done`; this narrows one case, it does not reopen them.
+
+3. **`EntityConstant.RATE_SCALE` is now 5** (`V4` narrowed `conversions.rate` to `NUMERIC(19,5)`) and
+   `RateMapper.scaleRate` already rounds every provider rate to scale 5 `HALF_UP`. Seq 4 consumes an
+   already-scaled rate and must not re-round it; it only sets the scale of the computed quote amount.
+
+### Seq 4 — REQ-14/REQ-17/REQ-18 upgraded from "contributes to" to fully closed — 2026-09-20
+
+Follow-on hardening after Seq 4's initial merge (idempotency-key-reuse conflict detection
+— `IdempotencyKeyConflictException` / `IDEMPOTENCY_KEY_CONFLICT` / 409 — plus `@Size` validation on the
+`Idempotency-Key` header, and the `@Version` removal from `BalanceEntity` in favour of the already-sole
+pessimistic-locking strategy) closes out what was previously only partial coverage:
+
+- **REQ-14** (validation): `CurrencyValidator` checks real ISO-4217 validity via `Currency.getInstance`
+  (not just regex shape), `ConversionRequest` carries `@Positive`/`@Digits` (bounds derived from
+  `EntityConstant.MONEY_PRECISION`/`MONEY_SCALE`, not hand-picked), `@NotBlank` on `clientId`, and
+  `@Size` on the idempotency key. Moved `Open → Done`.
+- **REQ-17** (unit + integration coverage): `ConversionServiceTest`, `ConversionProcessorTest`,
+  `CurrencyValidatorTest`, mapper tests, and `ConversionIntegrationTest` (18 cases against a real Spring
+  context + Testcontainers Postgres) are in place. Moved `Open → Done`.
+- **REQ-18** (idempotency replay / insufficient funds / happy-path explicitly tested): each has a named
+  test at both the unit and full-stack level, plus concurrency variants in
+  `ConversionConcurrencyIntegrationTest`. Moved `Open → Done`.
+
+REQ-16 is **not** touched by this note — it remains the formal responsibility of Seq 10 (still "Not
+planned"), even though the SpringDoc annotations already sitting on all three controllers substantially
+satisfy it in practice. Leaving that call to a future @planner pass rather than reassigning Seq
+ownership unilaterally here.
+
+**Update, same day, explicit user confirmation:** REQ-15 is also moved `Open → Done`. Every exception
+handler in `ForeignExchangeControllerAdvice` (11 distinct `ErrorCode`s as of this session, including
+`FIELD_ERROR` and `IDEMPOTENCY_KEY_CONFLICT`) returns the same `ErrorResponse` shape
+(`code`/`message`/`status`/`path`) via one shared `buildErrorResponse` helper, and every exception is
+only `log.error`'d server-side — none of it reaches the response body. Seq 9 remains "Not planned" as a
+standalone story (it would otherwise cover request validation too, which REQ-14 already closes), but the
+`@ControllerAdvice` half of its scope is done in practice.

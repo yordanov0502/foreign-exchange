@@ -27,8 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public abstract class BaseIntegrationTestSetUp {
 
-    protected static final String CLIENT_TEST_ID = "CLIENT-TEST-001";
-    protected static final String CLIENT_TEST_WITHOUT_BALANCES_ID = "CLIENT-TEST-002";
+    protected static final String CLIENT_DEFAULT_ID = "CLIENT-TEST-001";
+    protected static final String CLIENT_WITHOUT_BALANCES_ID = "CLIENT-TEST-002";
+    protected static final String CLIENT_WITH_SINGLE_CURRENCY_ID = "CLIENT-TEST-003";
+    protected static final String CLIENT_CONCURRENT_INSUFFICIENT_FUNDS_ID = "CLIENT-TEST-CONCURRENCY-001";
+    protected static final String CLIENT_CONCURRENT_SUFFICIENT_FUNDS_ID = "CLIENT-TEST-CONCURRENCY-002";
+    protected static final String CLIENT_CONCURRENT_SHARED_IDEMPOTENCY_KEY_ID = "CLIENT-TEST-CONCURRENCY-003";
 
     @Autowired
     protected MockMvc mockMvc;

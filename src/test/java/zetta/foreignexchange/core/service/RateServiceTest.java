@@ -21,6 +21,7 @@ import zetta.foreignexchange.common.integrations.frankfurter.exception.Frankfurt
 import zetta.foreignexchange.common.integrations.frankfurter.exception.FrankfurterPairNotQuotableException;
 import zetta.foreignexchange.common.integrations.frankfurter.response.FrankfurterRatePairResponse;
 import zetta.foreignexchange.core.exception.ExchangeRateUnavailableException;
+import zetta.foreignexchange.core.exception.SameCurrencyException;
 import zetta.foreignexchange.core.exception.UnsupportedCurrencyPairException;
 import zetta.foreignexchange.core.mapper.RateMapper;
 import zetta.foreignexchange.core.model.ExchangeRate;
@@ -74,19 +75,18 @@ class RateServiceTest {
     }
 
     @Test
-    void getExchangeRate_withIdenticalCurrencyPair_returnExchangeRateOfOne() {
-        when(frankfurterFeignClient.fetchLatestExchangeRates(USD, USD))
-                .thenReturn(buildFrankfurterRatePairResponse(USD, USD, BigDecimal.ONE));
+    void getExchangeRate_withIdenticalCurrencyPair_throwSameCurrencyException() {
+        SameCurrencyException sameCurrencyException = new SameCurrencyException(USD, USD);
+        doThrow(sameCurrencyException).when(currencyValidator).validateCurrencyPair(USD, USD);
 
-        ExchangeRate exchangeRate = rateService.getExchangeRate(USD, USD);
+        SameCurrencyException exception = assertThrows(
+                SameCurrencyException.class,
+                () -> rateService.getExchangeRate(USD, USD));
 
-        assertNotNull(exchangeRate);
-        assertEquals(QUOTE_DATE, exchangeRate.date());
-        assertEquals(USD, exchangeRate.baseCurrency());
-        assertEquals(USD, exchangeRate.quoteCurrency());
-        assertEquals(0, exchangeRate.rate().compareTo(BigDecimal.ONE));
+        assertSame(sameCurrencyException, exception);
 
-        verify(frankfurterFeignClient).fetchLatestExchangeRates(USD, USD);
+        verify(currencyValidator).validateCurrencyPair(USD, USD);
+        verifyNoInteractions(frankfurterFeignClient);
     }
 
     @Test

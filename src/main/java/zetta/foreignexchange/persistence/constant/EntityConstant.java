@@ -6,6 +6,7 @@ public final class EntityConstant {
     public static final int MONEY_SCALE = 4;
     public static final int RATE_SCALE = 5;
     public static final int CURRENCY_LENGTH = 3;
+    public static final int IDEMPOTENCY_KEY_LENGTH = 128;
 
     private EntityConstant() {}
 }

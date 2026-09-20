@@ -1,7 +1,7 @@
 # Foreign-Exchange Service — Priority Roadmap
 
 > **Maintained by:** @planner (sequencing, status) + @architect (risk flags, blocker validation)
-> **Last updated:** 2026-09-20
+> **Last updated:** 2026-09-21
 > **Update triggers:**
 > - @planner: after every planning cycle (new story added, story moved to in-progress)
 > - @architect: after every architecture review (risk flags, blocker corrections, priority changes)
@@ -37,8 +37,8 @@ own, unrelated numbering.
 | 6 | ~~Concurrency control on balance updates (no double-spend)~~ | Critical | REQ-9 | Seq 4 | Merged into Seq 4 |
 | 7 | ~~`Idempotency-Key` replay handling~~ | Critical | REQ-10 | Seq 4 | Merged into Seq 4 |
 | 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Done |
-| 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Not planned |
-| 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Not planned |
+| 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Done |
+| 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Done |
 | 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |
 | 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Not planned |
 | 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
@@ -259,3 +259,26 @@ handler in `ForeignExchangeControllerAdvice` (11 distinct `ErrorCode`s as of thi
 only `log.error`'d server-side — none of it reaches the response body. Seq 9 remains "Not planned" as a
 standalone story (it would otherwise cover request validation too, which REQ-14 already closes), but the
 `@ControllerAdvice` half of its scope is done in practice.
+
+### Seq 9 and Seq 10 closed — 2026-09-21 (explicit user decision)
+
+**Seq 9 → Done** without a story file: both of its requirements (REQ-14, REQ-15) were already closed by
+the Seq 4 hardening notes above, so the row was pure bookkeeping. No code was written for it.
+
+**Seq 10 → Done, REQ-16 `Open → Done`**, closed by a review-and-polish pass rather than a full story:
+
+- SpringDoc was already wired (dependency bumped `3.1.0 → 3.1.1` on 2026-09-20 to fix the
+  `cloneViaJson` WARN regression on constrained parameters — springdoc issue #3314); `/swagger-ui.html`
+  and `/v3/api-docs` verified serving all four endpoints with parameters, constraints and examples.
+- Stale-annotation review across all controllers. Findings, all in `ClientController`: the 404/500
+  responses advertised `application/json` while the advice always returns `application/problem+json`,
+  and two example messages were missing the trailing period the advice's message constants produce.
+  Fixed. `RateController` and `ConversionController` were accurate.
+- Added `rest/config/OpenApiConfiguration` — an `OpenAPI` info bean (title / version / description),
+  placed under `rest/` by explicit user decision (CLAUDE.md's package table names `common/config` for
+  OpenAPI configuration, but no `common/config` package exists; the API-description bean is
+  REST-layer-scoped, and the user chose `rest`).
+
+Known, accepted gap (not stale data, deliberately left out of scope): the 400 responses produced by
+bean validation (`FIELD_ERROR` / `VALIDATION_FAILED` / `MALFORMED_REQUEST` on bad bodies or missing
+`from`/`to` params) are documented on `GET /conversions` but not on `POST /conversions` or `GET /rates`.

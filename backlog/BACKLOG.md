@@ -33,7 +33,7 @@ Current implementation status. Updated as features are completed.
 | REQ-13 | Rate caching with a TTL, invalidation choice documented | Production | High | Done |
 | REQ-14 | Validation: ISO-4217 currency codes, positive amounts, sane bounds, non-blank client id | Production | High | Done |
 | REQ-15 | `@ControllerAdvice` returns consistent error bodies with distinct codes, never raw stack traces | Production | High | Done |
-| REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Open |
+| REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Done |
 | REQ-17 | Unit tests for conversion logic + at least one integration test through the Spring context | Testing | Critical | Done |
 | REQ-18 | Idempotency replay, insufficient funds, and happy-path debit/credit explicitly tested | Testing | Critical | Done |
 | REQ-19 | `docker compose up` boots the service with no manual setup beyond documented env vars | Production | High | Open |

@@ -23,5 +23,5 @@ frankfurter:
 
 cache:
   currency-rate-pair:
-    ttl: 3600s
+    ttl: 1800s
     max-size: 1000

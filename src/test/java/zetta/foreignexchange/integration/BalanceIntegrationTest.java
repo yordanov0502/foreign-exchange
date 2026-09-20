@@ -11,11 +11,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
-@Transactional
 public class BalanceIntegrationTest extends BaseIntegrationTestSetUp {
 
     private static final String GET_CLIENT_BALANCES_URL = "/clients/{clientId}/balances";
@@ -25,12 +23,12 @@ public class BalanceIntegrationTest extends BaseIntegrationTestSetUp {
 
     @Test
     void getClientBalances_withClientHavingBalances_returnClientBalances() throws Exception {
-        ResultActions result = getClientBalances(CLIENT_TEST_ID);
+        ResultActions result = getClientBalances(CLIENT_DEFAULT_ID);
         BigDecimal eurBalance = new BigDecimal("1200.0000");
         BigDecimal usdBalance = new BigDecimal("1500.0000");
 
         result.andExpect(status().isOk())
-                .andExpect(jsonPath("$.clientId").value(CLIENT_TEST_ID))
+                .andExpect(jsonPath("$.clientId").value(CLIENT_DEFAULT_ID))
                 .andExpect(jsonPath("$.balances", hasSize(2)))
                 .andExpect(jsonPath("$.balances[0].currency").value("EUR"))
                 .andExpect(jsonPath("$.balances[0].amount").value(comparesEqualTo(eurBalance), BigDecimal.class))
@@ -40,10 +38,10 @@ public class BalanceIntegrationTest extends BaseIntegrationTestSetUp {
 
     @Test
     void getClientBalances_withClientWithoutBalances_returnClientBalances() throws Exception {
-        ResultActions result = getClientBalances(CLIENT_TEST_WITHOUT_BALANCES_ID);
+        ResultActions result = getClientBalances(CLIENT_WITHOUT_BALANCES_ID);
 
         result.andExpect(status().isOk())
-                .andExpect(jsonPath("$.clientId").value(CLIENT_TEST_WITHOUT_BALANCES_ID))
+                .andExpect(jsonPath("$.clientId").value(CLIENT_WITHOUT_BALANCES_ID))
                 .andExpect(jsonPath("$.balances", hasSize(0)));
     }
 

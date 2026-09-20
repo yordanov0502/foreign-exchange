@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.Test;
 import zetta.foreignexchange.common.integrations.frankfurter.response.FrankfurterRatePairResponse;
 import zetta.foreignexchange.core.exception.ExchangeRateUnavailableException;
+import zetta.foreignexchange.core.exception.SameCurrencyException;
 import zetta.foreignexchange.core.exception.UnsupportedCurrencyPairException;
 
 import java.math.BigDecimal;
@@ -72,6 +73,22 @@ class CurrencyValidatorTest {
     }
 
     @Test
+    void validateCurrencyPair_withIdenticalCurrencies_throwSameCurrencyException() {
+        SameCurrencyException exception = assertThrows(
+                SameCurrencyException.class,
+                () -> currencyValidator.validateCurrencyPair(USD, USD));
+
+        assertEquals(USD, exception.getBaseCurrency());
+        assertEquals(USD, exception.getQuoteCurrency());
+    }
+
+    @Test
+    void validateCurrencyPair_withLowercaseIdenticalCurrencies_throwUnsupportedCurrencyPairException() {
+        assertThrows(UnsupportedCurrencyPairException.class,
+                () -> currencyValidator.validateCurrencyPair(LOWERCASE_CURRENCY, LOWERCASE_CURRENCY));
+    }
+
+    @Test
     void validateCurrencyPairsMatch_withMatchingPair_doNotThrowException() {
         FrankfurterRatePairResponse frankfurterRatePairResponse = buildRatePairResponse(USD, EUR);
 
@@ -94,8 +111,7 @@ class CurrencyValidatorTest {
     void validateCurrencyPairsMatch_withMismatchedQuote_throwExchangeRateUnavailableException() {
         FrankfurterRatePairResponse frankfurterRatePairResponse = buildRatePairResponse(USD, GBP);
 
-        assertThrows(
-                ExchangeRateUnavailableException.class,
+        assertThrows(ExchangeRateUnavailableException.class,
                 () -> currencyValidator.validateCurrencyPairsMatch(USD, EUR, frankfurterRatePairResponse));
     }
 

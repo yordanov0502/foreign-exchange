@@ -2,7 +2,9 @@ package zetta.foreignexchange.core.validator;
 
 import org.springframework.stereotype.Component;
 import zetta.foreignexchange.common.integrations.frankfurter.response.FrankfurterRatePairResponse;
+import zetta.foreignexchange.core.constant.CurrencyConstant;
 import zetta.foreignexchange.core.exception.ExchangeRateUnavailableException;
+import zetta.foreignexchange.core.exception.SameCurrencyException;
 import zetta.foreignexchange.core.exception.UnsupportedCurrencyPairException;
 
 import java.util.Currency;
@@ -12,11 +14,12 @@ import java.util.regex.Pattern;
 @Component
 public class CurrencyValidator {
 
-    private static final Pattern CURRENCY_CODE_PATTERN = Pattern.compile("^[A-Z]{3}$");
+    private static final Pattern CURRENCY_CODE_PATTERN = Pattern.compile(CurrencyConstant.CURRENCY_CODE_PATTERN);
 
     public void validateCurrencyPair(String baseCurrency, String quoteCurrency) {
         validateRegEx(baseCurrency, quoteCurrency);
         validateCurrencyCodesAreSupported(baseCurrency, quoteCurrency);
+        validateCurrenciesAreDifferent(baseCurrency, quoteCurrency);
     }
 
     public void validateCurrencyPairsMatch(
@@ -25,6 +28,12 @@ public class CurrencyValidator {
         if (!Objects.equals(baseCurrency, frankfurterRatePairResponse.base())
                 || !Objects.equals(quoteCurrency, frankfurterRatePairResponse.quote())) {
             throw new ExchangeRateUnavailableException(baseCurrency, quoteCurrency, null);
+        }
+    }
+
+    private void validateCurrenciesAreDifferent(String baseCurrency, String quoteCurrency) {
+        if (Objects.equals(baseCurrency, quoteCurrency)) {
+            throw new SameCurrencyException(baseCurrency, quoteCurrency);
         }
     }
 

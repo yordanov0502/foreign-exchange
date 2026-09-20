@@ -54,4 +54,16 @@ public class BalanceEntity {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public void debit(BigDecimal baseAmount) {
+        if (this.amount.compareTo(baseAmount) < 0) {
+            throw new IllegalStateException(
+                    "Balance " + currency + " cannot be debited below zero.");
+        }
+        this.amount = this.amount.subtract(baseAmount);
+    }
+
+    public void credit(BigDecimal quoteAmount) {
+        this.amount = this.amount.add(quoteAmount);
+    }
 }

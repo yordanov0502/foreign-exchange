@@ -18,7 +18,6 @@ import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.transaction.annotation.Transactional;
 import zetta.foreignexchange.common.cache.CacheConfiguration;
 import zetta.foreignexchange.common.integrations.frankfurter.FrankfurterFeignClient;
 import zetta.foreignexchange.common.integrations.frankfurter.exception.FrankfurterGeneralException;
@@ -34,7 +33,6 @@ import java.util.Objects;
  * cache, advice and JSON serialisation — while {@link FrankfurterFeignClient} is replaced by a mock so the
  * suite never reaches the network.
  */
-@Transactional
 public class RateIntegrationTest extends BaseIntegrationTestSetUp {
 
     private static final String GET_RATES_URL = "/rates";
@@ -52,6 +50,8 @@ public class RateIntegrationTest extends BaseIntegrationTestSetUp {
             "Exchange rate for currency pair %s/%s is currently unavailable.";
     private static final String UNSUPPORTED_CURRENCY_PAIR_CODE = "UNSUPPORTED_CURRENCY_PAIR";
     private static final String UNSUPPORTED_CURRENCY_PAIR_MESSAGE = "Currency pair %s/%s is not supported.";
+    private static final String SAME_CURRENCY_CODE = "SAME_CURRENCY";
+    private static final String SAME_CURRENCY_MESSAGE = "Currency pair %s/%s must contain two different currencies.";
     private static final String PROVIDER_FAILED_MESSAGE = "provider failed";
 
     @MockitoBean
@@ -114,14 +114,17 @@ public class RateIntegrationTest extends BaseIntegrationTestSetUp {
     }
 
     @Test
-    void getExchangeRate_withIdenticalCurrencyPair_returnRateOfOne() throws Exception {
-        when(frankfurterFeignClient.fetchLatestExchangeRates(USD, USD))
-                .thenReturn(buildRatePairResponse(USD, USD, BigDecimal.ONE));
-
+    void getExchangeRate_withIdenticalCurrencyPair_returnSameCurrencyWithoutCallingProvider() throws Exception {
         ResultActions result = getRate(USD, USD);
 
-        result.andExpect(status().isOk())
-                .andExpect(jsonPath("$.rate").value(comparesEqualTo(BigDecimal.ONE), BigDecimal.class));
+        result.andExpect(status().isUnprocessableContent())
+                .andExpectAll(
+                        jsonPath("$.code").value(SAME_CURRENCY_CODE),
+                        jsonPath("$.message").value(format(SAME_CURRENCY_MESSAGE, USD, USD)),
+                        jsonPath("$.status").value(HttpStatus.UNPROCESSABLE_CONTENT.value()),
+                        jsonPath("$.path").value(GET_RATES_URL));
+
+        verifyNoInteractions(frankfurterFeignClient);
     }
 
     @Test

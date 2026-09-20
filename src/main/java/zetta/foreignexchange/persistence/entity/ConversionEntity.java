@@ -30,8 +30,6 @@ import java.util.UUID;
 @AllArgsConstructor
 public class ConversionEntity {
 
-    private static final int IDEMPOTENCY_KEY_LENGTH = 128;
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -64,7 +62,7 @@ public class ConversionEntity {
     @Column(nullable = false, precision = EntityConstant.MONEY_PRECISION, scale = EntityConstant.RATE_SCALE)
     private BigDecimal rate;
 
-    @Column(name = "idempotency_key", length = IDEMPOTENCY_KEY_LENGTH)
+    @Column(name = "idempotency_key", length = EntityConstant.IDEMPOTENCY_KEY_LENGTH)
     private String idempotencyKey;
 
     @CreationTimestamp

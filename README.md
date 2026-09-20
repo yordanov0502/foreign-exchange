@@ -48,8 +48,8 @@ already baked into both files. Host port `8081` must be free.
 ### Option 2 — local dev
 
 ```bash
-./mvnw spring-boot:run        # Linux/macOS
-mvnw.cmd spring-boot:run       # Windows
+./mvnw spring-boot:run          # Linux/macOS
+.\mvnw.cmd spring-boot:run      # Windows (PowerShell and cmd)
 ```
 
 This requires a **running Docker daemon** — Spring Boot's docker-compose integration starts Postgres for
@@ -61,7 +61,8 @@ app.
 ### Tests
 
 ```bash
-./mvnw test
+./mvnw test          # Linux/macOS
+.\mvnw.cmd test      # Windows (PowerShell and cmd)
 ```
 
 Also requires a Docker daemon: integration tests spin up a real Postgres via Testcontainers rather than

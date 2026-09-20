@@ -1,6 +1,7 @@
 package zetta.foreignexchange.rest.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -89,7 +90,9 @@ public class ClientController {
                                 """)))
     })
     @GetMapping(value = "/{clientId}/balances", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ClientBalancesResponse> getClientBalances(@PathVariable final String clientId) {
+    public ResponseEntity<ClientBalancesResponse> getClientBalances(
+            @Parameter(description = "Client identifier", example = "CLIENT-001")
+            @PathVariable final String clientId) {
         List<Balance> balances = balanceService.getClientBalances(clientId);
         return ResponseEntity.ok(clientBalancesResponseMapper.mapToClientBalancesResponse(clientId, balances));
     }

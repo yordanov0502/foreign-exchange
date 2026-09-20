@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -42,10 +41,6 @@ public class BalanceEntity {
 
     @Column(nullable = false, precision = EntityConstant.MONEY_PRECISION, scale = EntityConstant.MONEY_SCALE)
     private BigDecimal amount;
-
-    @Version
-    @Column(nullable = false)
-    private Long version;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

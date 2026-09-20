@@ -1,0 +1,2 @@
+- [Priority notes are the decision log](reference_priority_notes.md) — backlog/PRIORITY.md "Re-prioritisation Notes" has the authoritative "why" for trade-offs
+- [README: completeness over length](feedback_readme_completeness_over_length.md) — satisfy all required sections fully even if it exceeds a suggested line-count target

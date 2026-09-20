@@ -8,6 +8,7 @@ import zetta.foreignexchange.persistence.entity.ConversionEntity;
 @Mapper(componentModel = "spring")
 public interface ConversionMapper {
 
+    @Mapping(target = "clientId", source = "client.clientId")
     @Mapping(target = "timestamp", source = "createdAt")
     Conversion mapToConversion(ConversionEntity conversionEntity);
 }

@@ -13,23 +13,37 @@ import static org.mockito.Mockito.when;
 import org.instancio.Instancio;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import zetta.foreignexchange.core.exception.BalanceNotFoundException;
 import zetta.foreignexchange.core.exception.ClientNotFoundException;
+import zetta.foreignexchange.core.exception.ConversionFilterRequiredException;
 import zetta.foreignexchange.core.exception.IdempotencyKeyConflictException;
 import zetta.foreignexchange.core.exception.InsufficientFundsException;
 import zetta.foreignexchange.core.exception.SameCurrencyException;
+import zetta.foreignexchange.core.mapper.ConversionMapper;
 import zetta.foreignexchange.core.model.Conversion;
+import zetta.foreignexchange.core.model.ConversionHistoryQuery;
 import zetta.foreignexchange.core.model.ConversionInput;
 import zetta.foreignexchange.core.model.ConversionResult;
 import zetta.foreignexchange.core.model.ExchangeRate;
 import zetta.foreignexchange.core.processor.ConversionProcessor;
 import zetta.foreignexchange.core.service.RateService;
 import zetta.foreignexchange.core.validator.CurrencyValidator;
+import zetta.foreignexchange.persistence.entity.ClientEntity;
+import zetta.foreignexchange.persistence.entity.ConversionEntity;
 import zetta.foreignexchange.persistence.repository.ClientRepository;
+import zetta.foreignexchange.persistence.repository.ConversionRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -47,6 +61,8 @@ class ConversionServiceTest {
     private static final BigDecimal BASE_AMOUNT = new BigDecimal("100.00");
     private static final BigDecimal RATE = new BigDecimal("0.86984");
     private static final LocalDate QUOTE_DATE = LocalDate.of(2026, 9, 20);
+    private static final int PAGE = 0;
+    private static final int SIZE = 20;
 
     @Mock
     private CurrencyValidator currencyValidator;
@@ -59,6 +75,12 @@ class ConversionServiceTest {
 
     @Mock
     private ConversionProcessor conversionProcessor;
+
+    @Mock
+    private ConversionRepository conversionRepository;
+
+    @Spy
+    private ConversionMapper conversionMapper = Mappers.getMapper(ConversionMapper.class);
 
     @InjectMocks
     private ConversionServiceImpl conversionService;
@@ -279,6 +301,58 @@ class ConversionServiceTest {
         assertEquals(idempotencyKey, exception.getIdempotencyKey());
     }
 
+    @Test
+    void getConversionHistory_withNoFilterSupplied_throwConversionFilterRequiredException() {
+        ConversionHistoryQuery conversionHistoryQuery = new ConversionHistoryQuery(null, null, null, PAGE, SIZE);
+
+        assertThrows(ConversionFilterRequiredException.class,
+                () -> conversionService.getConversionHistory(conversionHistoryQuery));
+
+        verifyNoInteractions(conversionRepository);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Test
+    void getConversionHistory_withClientIdFilter_returnPageOfConversions() {
+        ConversionHistoryQuery conversionHistoryQuery = new ConversionHistoryQuery(null, null, CLIENT_ID, PAGE, SIZE);
+        ConversionEntity conversionEntity = buildConversionEntity();
+        Page<ConversionEntity> conversionEntityPage = new PageImpl<>(List.of(conversionEntity));
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(conversionRepository.findAll(any(Specification.class), pageableCaptor.capture()))
+                .thenReturn(conversionEntityPage);
+
+        Page<Conversion> conversionPage = conversionService.getConversionHistory(conversionHistoryQuery);
+
+        assertEquals(1, conversionPage.getContent().size());
+        assertEquals(CLIENT_ID, conversionPage.getContent().getFirst().clientId());
+
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertEquals(PAGE, capturedPageable.getPageNumber());
+        assertEquals(SIZE, capturedPageable.getPageSize());
+
+        Sort.Order createdAtOrder = capturedPageable.getSort().getOrderFor("createdAt");
+        Sort.Order idOrder = capturedPageable.getSort().getOrderFor("id");
+        assertEquals(Sort.Direction.DESC, createdAtOrder.getDirection());
+        assertEquals(Sort.Direction.DESC, idOrder.getDirection());
+    }
+
+    private ConversionEntity buildConversionEntity() {
+        ClientEntity clientEntity = ClientEntity.builder()
+                .clientId(CLIENT_ID)
+                .build();
+        return ConversionEntity.builder()
+                .transactionId(UUID.randomUUID())
+                .client(clientEntity)
+                .baseCurrency(USD)
+                .baseAmount(BASE_AMOUNT)
+                .quoteCurrency(EUR)
+                .quoteAmount(BASE_AMOUNT)
+                .rate(RATE)
+                .createdAt(OffsetDateTime.now())
+                .build();
+    }
+
     private ConversionInput buildConversionInput(String idempotencyKey) {
         return new ConversionInput(CLIENT_ID, idempotencyKey, USD, EUR, BASE_AMOUNT);
     }
@@ -289,7 +363,14 @@ class ConversionServiceTest {
 
     private ConversionResult buildConversionResult(String baseCurrency, String quoteCurrency, BigDecimal baseAmount) {
         Conversion conversion = new Conversion(
-                UUID.randomUUID(), baseCurrency, baseAmount, quoteCurrency, baseAmount, RATE, OffsetDateTime.now());
+                UUID.randomUUID(),
+                CLIENT_ID,
+                baseCurrency,
+                baseAmount,
+                quoteCurrency,
+                baseAmount,
+                RATE,
+                OffsetDateTime.now());
         return new ConversionResult(conversion, List.of());
     }
 }

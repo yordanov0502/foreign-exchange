@@ -9,25 +9,37 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import zetta.foreignexchange.core.constant.IdempotencyConstant;
+import zetta.foreignexchange.core.constant.PaginationConstant;
+import zetta.foreignexchange.core.model.Conversion;
+import zetta.foreignexchange.core.model.ConversionHistoryQuery;
 import zetta.foreignexchange.core.model.ConversionInput;
 import zetta.foreignexchange.core.model.ConversionResult;
 import zetta.foreignexchange.core.service.ConversionService;
 import zetta.foreignexchange.rest.error.ErrorResponse;
+import zetta.foreignexchange.rest.mapper.ConversionHistoryQueryMapper;
+import zetta.foreignexchange.rest.mapper.ConversionHistoryResponseMapper;
 import zetta.foreignexchange.rest.mapper.ConversionRequestMapper;
 import zetta.foreignexchange.rest.mapper.ConversionResponseMapper;
+import zetta.foreignexchange.rest.model.ConversionHistoryFilterRequest;
+import zetta.foreignexchange.rest.model.ConversionHistoryResponse;
 import zetta.foreignexchange.rest.model.ConversionRequest;
 import zetta.foreignexchange.rest.model.ConversionResponse;
 
@@ -43,6 +55,8 @@ public class ConversionController {
 
     private final ConversionRequestMapper conversionRequestMapper;
     private final ConversionResponseMapper conversionResponseMapper;
+    private final ConversionHistoryQueryMapper conversionHistoryQueryMapper;
+    private final ConversionHistoryResponseMapper conversionHistoryResponseMapper;
     private final ConversionService conversionService;
 
     @Operation(
@@ -189,5 +203,84 @@ public class ConversionController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(conversionResponseMapper.mapToConversionResponse(conversionResult));
+    }
+
+    @Operation(
+            summary = "Get a paginated, filtered conversion history",
+            description = "Filters by transactionId, date (a whole UTC day) and/or clientId. "
+                    + "At least one filter must be provided.")
+    @ApiResponses({
+        @ApiResponse(
+                responseCode = "200",
+                description = "A page of conversion history (empty content if nothing matches)",
+                content = @Content(
+                        mediaType = MediaType.APPLICATION_JSON_VALUE,
+                        schema = @Schema(implementation = ConversionHistoryResponse.class),
+                        examples = @ExampleObject(
+                                value = """
+                                {
+                                  "content": [
+                                    {
+                                      "transactionId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                                      "clientId": "CLIENT-001",
+                                      "sourceCurrency": "USD",
+                                      "sourceAmount": 100.0000,
+                                      "targetCurrency": "EUR",
+                                      "targetAmount": 86.9840,
+                                      "rate": 0.86984,
+                                      "timestamp": "2026-09-20T12:00:00Z"
+                                    }
+                                  ],
+                                  "page": 0,
+                                  "size": 20,
+                                  "totalElements": 1,
+                                  "totalPages": 1
+                                }
+                                """))),
+        @ApiResponse(
+                responseCode = "400",
+                description = "No filter supplied, a filter is malformed, or page/size is out of bounds",
+                content = @Content(
+                        mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                        schema = @Schema(implementation = ErrorResponse.class),
+                        examples = {
+                            @ExampleObject(
+                                    name = "CONVERSION_FILTER_REQUIRED",
+                                    value = """
+                                    {
+                                      "code": "CONVERSION_FILTER_REQUIRED",
+                                      "message": "At least one of transactionId, date or clientId must be supplied.",
+                                      "status": 400,
+                                      "path": "/conversions"
+                                    }
+                                    """),
+                            @ExampleObject(
+                                    name = "FIELD_ERROR",
+                                    value = """
+                                    {
+                                      "code": "FIELD_ERROR",
+                                      "message": "Either you submitted a request that is missing a mandatory field \
+                                or the value of a field does not match the format expected.",
+                                      "status": 400,
+                                      "path": "/conversions"
+                                    }
+                                """)
+                        }))
+    })
+    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ConversionHistoryResponse> getConversionHistory(
+            final ConversionHistoryFilterRequest conversionHistoryFilterRequest,
+            @Parameter(description = "Zero-based page number", example = "0")
+            @RequestParam(value = "page", defaultValue = PaginationConstant.DEFAULT_PAGE_NUMBER)
+            @Min(PaginationConstant.MIN_PAGE_NUMBER) final int page,
+            @Parameter(description = "Maximum number of items per page", example = "20")
+            @RequestParam(value = "size", defaultValue = PaginationConstant.DEFAULT_PAGE_SIZE)
+            @Min(PaginationConstant.MIN_PAGE_SIZE) @Max(PaginationConstant.MAX_PAGE_SIZE) final int size) {
+
+        ConversionHistoryQuery conversionHistoryQuery =
+                conversionHistoryQueryMapper.mapToConversionHistoryQuery(conversionHistoryFilterRequest, page, size);
+        Page<Conversion> conversionPage = conversionService.getConversionHistory(conversionHistoryQuery);
+
+        return ResponseEntity.ok(conversionHistoryResponseMapper.mapToConversionHistoryResponse(conversionPage));
     }
 }

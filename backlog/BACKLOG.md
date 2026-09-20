@@ -20,7 +20,7 @@ Current implementation status. Updated as features are completed.
 |---|---|---|---|--------|
 | REQ-1 | `GET /rates?from=&to=` returns the current exchange rate | Endpoint | Critical | Done |
 | REQ-2 | `POST /conversions` converts an amount for a client; returns `transactionId`, amounts, rate, timestamp, updated balances | Endpoint | Critical | Done |
-| REQ-3 | `GET /conversions` — paginated history filtered by `transactionId`/`date`/`clientId` (≥ 1 filter required) | Endpoint | Critical | Open |
+| REQ-3 | `GET /conversions` — paginated history filtered by `transactionId`/`date`/`clientId` (≥ 1 filter required) | Endpoint | Critical | Done |
 | REQ-4 | `GET /clients/{clientId}/balances` returns balances per currency held | Endpoint | Critical | Done |
 | REQ-5 | Demo clients seeded via Flyway (`CLIENT-001`, `CLIENT-002`) with documented starting balances | Data | Critical | Done |
 | REQ-6 | Debit + credit + conversion record are atomic — one DB transaction | Correctness | Critical | Done |
@@ -33,12 +33,12 @@ Current implementation status. Updated as features are completed.
 | REQ-13 | Rate caching with a TTL, invalidation choice documented | Production | High | Done |
 | REQ-14 | Validation: ISO-4217 currency codes, positive amounts, sane bounds, non-blank client id | Production | High | Done |
 | REQ-15 | `@ControllerAdvice` returns consistent error bodies with distinct codes, never raw stack traces | Production | High | Done |
-| REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Open |
+| REQ-16 | OpenAPI / Swagger UI auto-generated (SpringDoc) | Production | Medium | Done |
 | REQ-17 | Unit tests for conversion logic + at least one integration test through the Spring context | Testing | Critical | Done |
 | REQ-18 | Idempotency replay, insufficient funds, and happy-path debit/credit explicitly tested | Testing | Critical | Done |
-| REQ-19 | `docker compose up` boots the service with no manual setup beyond documented env vars | Production | High | Open |
-| REQ-20 | Dockerfile — multi-stage build, non-root user | Production | Medium | Open |
-| REQ-21 | README explains how to run it, trade-offs, the concurrency choice, and what's next | Communication | Critical | Open |
+| REQ-19 | `docker compose up` boots the service with no manual setup beyond documented env vars | Production | High | Done |
+| REQ-20 | Dockerfile — multi-stage build, non-root user | Production | Medium | Done |
+| REQ-21 | README explains how to run it, trade-offs, the concurrency choice, and what's next | Communication | Critical | Done |
 
 ---
 

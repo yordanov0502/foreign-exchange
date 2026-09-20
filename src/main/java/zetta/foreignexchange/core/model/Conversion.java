@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record Conversion(
         UUID transactionId,
+        String clientId,
         String baseCurrency,
         BigDecimal baseAmount,
         String quoteCurrency,

@@ -1,7 +1,7 @@
 # Foreign-Exchange Service — Priority Roadmap
 
 > **Maintained by:** @planner (sequencing, status) + @architect (risk flags, blocker validation)
-> **Last updated:** 2026-09-20
+> **Last updated:** 2026-09-21
 > **Update triggers:**
 > - @planner: after every planning cycle (new story added, story moved to in-progress)
 > - @architect: after every architecture review (risk flags, blocker corrections, priority changes)
@@ -36,12 +36,12 @@ own, unrelated numbering.
 | 5 | ~~Insufficient funds / unknown client / unknown currency error paths~~ | Critical | REQ-7, REQ-8 | Seq 4 | Merged into Seq 4 |
 | 6 | ~~Concurrency control on balance updates (no double-spend)~~ | Critical | REQ-9 | Seq 4 | Merged into Seq 4 |
 | 7 | ~~`Idempotency-Key` replay handling~~ | Critical | REQ-10 | Seq 4 | Merged into Seq 4 |
-| 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Not planned |
-| 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Not planned |
-| 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Not planned |
-| 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Not planned |
-| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Not planned |
-| 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Not planned |
+| 8 | `GET /conversions` — paginated, filtered history | Critical | REQ-3 | Seq 4 | Done |
+| 9 | Global error handling (`@ControllerAdvice`) + request validation | High | REQ-14, REQ-15 | Seq 2, Seq 4 | Done |
+| 10 | OpenAPI / Swagger UI | Medium | REQ-16 | Seq 2, 3, 4, 8 | Done |
+| 11 | Dockerfile (multi-stage, non-root) + `docker compose up` wiring | High | REQ-19, REQ-20 | Seq 1 | Done |
+| 12 | Test coverage hardening — explicit idempotency/insufficient-funds/happy-path/concurrency assertions | Critical | REQ-17, REQ-18 | Seq 4 | Done |
+| 13 | README — run instructions, trade-offs, concurrency choice, what's next | Critical | REQ-21 | All above | Done |
 
 ---
 
@@ -259,3 +259,119 @@ handler in `ForeignExchangeControllerAdvice` (11 distinct `ErrorCode`s as of thi
 only `log.error`'d server-side — none of it reaches the response body. Seq 9 remains "Not planned" as a
 standalone story (it would otherwise cover request validation too, which REQ-14 already closes), but the
 `@ControllerAdvice` half of its scope is done in practice.
+
+### Seq 9 and Seq 10 closed — 2026-09-21 (explicit user decision)
+
+**Seq 9 → Done** without a story file: both of its requirements (REQ-14, REQ-15) were already closed by
+the Seq 4 hardening notes above, so the row was pure bookkeeping. No code was written for it.
+
+**Seq 10 → Done, REQ-16 `Open → Done`**, closed by a review-and-polish pass rather than a full story:
+
+- SpringDoc was already wired (dependency bumped `3.1.0 → 3.1.1` on 2026-09-20 to fix the
+  `cloneViaJson` WARN regression on constrained parameters — springdoc issue #3314); `/swagger-ui.html`
+  and `/v3/api-docs` verified serving all four endpoints with parameters, constraints and examples.
+- Stale-annotation review across all controllers. Findings, all in `ClientController`: the 404/500
+  responses advertised `application/json` while the advice always returns `application/problem+json`,
+  and two example messages were missing the trailing period the advice's message constants produce.
+  Fixed. `RateController` and `ConversionController` were accurate.
+- Added `rest/config/OpenApiConfiguration` — an `OpenAPI` info bean (title / version / description),
+  placed under `rest/` by explicit user decision (CLAUDE.md's package table names `common/config` for
+  OpenAPI configuration, but no `common/config` package exists; the API-description bean is
+  REST-layer-scoped, and the user chose `rest`).
+
+Known, accepted gap (not stale data, deliberately left out of scope): the 400 responses produced by
+bean validation (`FIELD_ERROR` / `VALIDATION_FAILED` / `MALFORMED_REQUEST` on bad bodies or missing
+`from`/`to` params) are documented on `GET /conversions` but not on `POST /conversions` or `GET /rates`.
+
+### Seq 12 closed — 2026-09-21 (explicit user decision, checkpoint verified)
+
+**Seq 12 → Done.** The checkpoint's purpose was to confirm the assignment's explicitly-called-out
+scenarios are asserted by name, not just implicitly covered. Verified against the suite (179 tests,
+0 failures, full run 2026-09-21):
+
+- **Idempotency replay** — unit: `convert_withReplayedIdempotencyKey_returnOriginalConversionWithoutSecondDebit`
+  (+ cross-client, conflict and concurrent-duplicate variants in `ConversionServiceTest`); full-stack:
+  `createConversion_withReplayedIdempotencyKey_returnOriginalConversion` and
+  `...ForDifferentAmount_returnConflict` in `ConversionIntegrationTest`.
+- **Insufficient funds** — unit: `ConversionServiceTest` and
+  `processConversion_withInsufficientSourceBalance_throwInsufficientFundsExceptionAndPersistNothing`;
+  full-stack: `createConversion_withInsufficientFunds_returnUnprocessableContentAndPersistNoConversion`.
+- **Happy-path debit/credit** — full-stack:
+  `createConversion_withSufficientFunds_returnConversionAndUpdatedBalances`.
+- **Concurrency** — `ConversionConcurrencyIntegrationTest`: parallel requests exceeding balance persist
+  only one conversion (no double-spend), parallel affordable requests debit both without a lost update,
+  parallel requests sharing an idempotency key persist only one.
+
+Honest gap, accepted: the > 80% coverage threshold in `.claude/CLAUDE.md` is not machine-verified —
+there is no JaCoCo (or other coverage) plugin in `pom.xml`. Closing Seq 12 rests on the named-scenario
+audit above, not on a measured percentage. Adding JaCoCo remains an optional hardening item if the
+number is wanted for the README.
+
+### Seq 11 closed — 2026-09-21 (Dockerfile + compose wiring, verified end to end)
+
+**Seq 11 → Done; REQ-19 and REQ-20 `Open → Done`.** Files: `Dockerfile`, `docker-compose.override.yaml`,
+`.dockerignore`, plus `spring.docker.compose.file: docker-compose.yaml` pinned in `application.yaml`.
+
+**The one structural decision — override file, not one merged compose file.** The assignment needs a
+plain `docker compose up` to boot app + postgres, while `./mvnw spring-boot:run` (the existing dev flow,
+protected by the Backward Compatibility rule) must keep starting *only* postgres. Docker Compose merges
+`docker-compose.override.yaml` automatically **only when no `--file` is given**; Spring Boot's compose
+support always passes `--file` (now pinned explicitly). So: `docker-compose.yaml` stays the dev/postgres
+file, the override adds the `app` service (built from `Dockerfile`, `SPRING_DATASOURCE_*` pointed at the
+`postgres` service DNS name, `SPRING_DOCKER_COMPOSE_ENABLED=false` so the app never looks for a Docker
+daemon inside its own container) and a `pg_isready` healthcheck that gates app start via
+`depends_on: condition: service_healthy`.
+
+**Dockerfile hygiene** (per the brief's "multi-stage build, non-root user" and the "container hygiene"
+grading axis): build stage `maven:3.9-eclipse-temurin-21` with `dependency:go-offline` in its own layer
+for cacheable rebuilds and `-DskipTests` (the suite needs a Docker daemon for Testcontainers, unavailable
+mid-build); runtime stage `eclipse-temurin:21-jre-alpine` — JRE only, no toolchain — with a dedicated
+`spring` system user/group, the jar left root-owned so the process cannot overwrite its own binary,
+`-XX:MaxRAMPercentage=75.0` for container-aware heap sizing. The Maven build runs `package`, which stops
+short of `verify`, so Checkstyle does not run in-image (it is enforced in dev/CI).
+
+**Verified, both flows:** `docker compose up -d --build` → postgres healthy → app started; inside the
+container `whoami` = `spring`, `GET /clients/CLIENT-001/balances` = 200 with seeded (Flyway-migrated)
+balances, `/v3/api-docs` = 200. Then `./mvnw spring-boot:run` → log shows
+`Using Docker Compose file ...docker-compose.yaml`, only postgres started (app container stayed exited),
+local boot OK. No env vars are required for either flow — the demo credentials are baked into the compose
+files; Seq 13's README must document them (and may present overriding them as optional).
+
+Remaining open: Seq 13 / REQ-21 (README) only.
+
+### Seq 13 closed — 2026-09-21 (README written and fact-checked)
+
+**Seq 13 → Done; REQ-21 `Open → Done`.** `README.md` (repo root, 309 lines) written via the tech-writer
+agent and fact-checked line by line against the code: run instructions for both flows (compose /
+`mvnw spring-boot:run`) with the exact commands verified end-to-end against a fresh `git clone` from
+GitHub (seeded balances 200, live `POST /conversions` 201 from inside the container); demo-client table
+matches `V2`; the pessimistic-locking section quotes the real `BalanceRepository` lock and the
+fixed-currency-order double-lock rationale, with the `@Version` (dropped in `V5`) and single-writer
+alternatives argued; idempotency documents the pre-check → partial unique index →
+`DataIntegrityViolationException` recovery chain; caching documents pure-TTL expiry as the invalidation
+choice; the trade-offs section records the Spring Cloud 4.0.8-vs-Boot 4.1.1 skew, the source/target vs
+base/quote wire asymmetry, SAME_CURRENCY rejection, the no-JaCoCo gap, in-image test skipping and the
+unpinned `postgres:latest`; "What's next" lists five prioritised items. Every requirement row in
+`BACKLOG.md` is now Done. Remaining outside the tracker: commit `README.md` + these backlog updates,
+and merge the branch.
+
+### Post-close hardening: JaCoCo gate + Postgres pin — 2026-09-21 (explicit user decision)
+
+Two items promoted out of the README's "What's next" into done work:
+
+- **JaCoCo wired and enforcing**: `jacoco-maven-plugin` 0.8.13 in `pom.xml` (prepare-agent / report /
+  check at `verify`), gating the build at ≥ 80% **line** coverage (`jacoco.minimum-line-coverage`
+  property). New `lombok.config` sets `lombok.addLombokGeneratedAnnotation = true` so Lombok-generated
+  bytecode is excluded from measurement. `mvn clean verify`: BUILD SUCCESS, measured **96.2% line
+  coverage (535/556)**. Correction to the Seq 12/13 notes above: the "179 tests" figure was an artifact
+  of summing stale surefire report files across runs — a clean run counts **158 tests**, all green.
+- **Postgres pinned** `postgres:latest → postgres:18` in `docker-compose.yaml` (18.6 is what every
+  verified run actually used); compose boot re-verified on the pinned tag (postgres healthy, app 200).
+- Seed change from the same session: `V2` now also seeds `CLIENT-002` with `3000.0000 CHF` (verified:
+  fresh boot, GBP→CHF conversion 201). Editing applied migration V2 breaks Flyway validation on any
+  pre-existing database volume (checksum mismatch) — remedied locally via `docker compose down -v`;
+  README carries a troubleshooting line. Future seed changes after this push should be new migrations.
+- README "What's next" re-ordered accordingly and extended with: rate limiting per client/IP; a
+  Resilience4j retry evaluation for transient provider failures; transaction/query timeout handling
+  starting with `@Transactional(timeout)` on `ConversionProcessor` and generalising (possibly via an
+  aspect) with dedicated exception handling.

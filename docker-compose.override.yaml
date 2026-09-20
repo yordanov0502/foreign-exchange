@@ -1,0 +1,27 @@
+# Merged automatically over docker-compose.yaml by a plain `docker compose up`, adding the
+# application container so the whole service boots self-contained (assignment REQ-19).
+#
+# Deliberately NOT loaded by `./mvnw spring-boot:run`: Spring Boot's docker-compose support passes
+# `--file docker-compose.yaml` explicitly (pinned via spring.docker.compose.file), and Docker Compose
+# skips override merging when --file is given — so dev runs keep starting only postgres.
+services:
+  app:
+    build: .
+    ports:
+      - '8081:8081'
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/mydatabase'
+      - 'SPRING_DATASOURCE_USERNAME=myuser'
+      - 'SPRING_DATASOURCE_PASSWORD=secret'
+      # The dev-time compose integration must not look for a Docker daemon inside the container.
+      - 'SPRING_DOCKER_COMPOSE_ENABLED=false'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U myuser -d mydatabase']
+      interval: 2s
+      timeout: 3s
+      retries: 15

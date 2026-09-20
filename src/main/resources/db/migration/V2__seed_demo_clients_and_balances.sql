@@ -9,5 +9,6 @@ FROM clients c
 JOIN (VALUES
     ('CLIENT-001', 'USD', 10000.0000),
     ('CLIENT-001', 'EUR', 8000.0000),
-    ('CLIENT-002', 'GBP', 5000.0000)
+    ('CLIENT-002', 'GBP', 5000.0000),
+    ('CLIENT-002', 'CHF', 3000.0000)
 ) AS v(client_id, currency, amount) ON v.client_id = c.client_id;

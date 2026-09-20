@@ -16,8 +16,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import zetta.foreignexchange.core.exception.BalanceNotFoundException;
 import zetta.foreignexchange.core.exception.ClientNotFoundException;
+import zetta.foreignexchange.core.exception.ConversionFilterRequiredException;
 import zetta.foreignexchange.core.exception.ExchangeRateUnavailableException;
 import zetta.foreignexchange.core.exception.IdempotencyKeyConflictException;
 import zetta.foreignexchange.core.exception.InsufficientFundsException;
@@ -59,6 +61,9 @@ public class ForeignExchangeControllerAdviceTest {
     private static final String INTERNAL_SERVER_ERROR_CODE = "INTERNAL_SERVER_ERROR";
     private static final String INTERNAL_SERVER_ERROR_MESSAGE = "An unexpected internal error has occurred.";
     private static final String EXCEPTION_MESSAGE = "exception message";
+    private static final String CONVERSION_FILTER_REQUIRED_CODE = "CONVERSION_FILTER_REQUIRED";
+    private static final String CONVERSION_FILTER_REQUIRED_MESSAGE =
+            "At least one of transactionId, date or clientId must be supplied.";
 
     private final ForeignExchangeControllerAdvice controllerAdvice = new ForeignExchangeControllerAdvice();
 
@@ -306,6 +311,43 @@ public class ForeignExchangeControllerAdviceTest {
         assertNotNull(responseEntity.getBody());
         assertEquals(MALFORMED_REQUEST_CODE, responseEntity.getBody().code());
         assertEquals(MALFORMED_REQUEST_MESSAGE, responseEntity.getBody().message());
+        assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+        assertEquals(REQUEST_URI, responseEntity.getBody().path());
+    }
+
+    @Test
+    void handleConversionFilterRequiredException_withNoFilterSupplied_returnBadRequestResponseEntity() {
+        ConversionFilterRequiredException exception = new ConversionFilterRequiredException();
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        when(request.getRequestURI()).thenReturn(REQUEST_URI);
+
+        ResponseEntity<ErrorResponse> responseEntity =
+                controllerAdvice.handleConversionFilterRequiredException(exception, request);
+
+        assertNotNull(responseEntity);
+        assertNotNull(responseEntity.getBody());
+        assertEquals(CONVERSION_FILTER_REQUIRED_CODE, responseEntity.getBody().code());
+        assertEquals(CONVERSION_FILTER_REQUIRED_MESSAGE, responseEntity.getBody().message());
+        assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+        assertEquals(REQUEST_URI, responseEntity.getBody().path());
+    }
+
+    @Test
+    void handleMethodArgumentTypeMismatchException_withNonNumericPage_returnBadRequestResponseEntity() {
+        MethodArgumentTypeMismatchException exception = mock(MethodArgumentTypeMismatchException.class);
+        HttpServletRequest request = mock(HttpServletRequest.class);
+
+        when(exception.getMessage()).thenReturn(EXCEPTION_MESSAGE);
+        when(request.getRequestURI()).thenReturn(REQUEST_URI);
+
+        ResponseEntity<ErrorResponse> responseEntity =
+                controllerAdvice.handleMethodArgumentTypeMismatchException(exception, request);
+
+        assertNotNull(responseEntity);
+        assertNotNull(responseEntity.getBody());
+        assertEquals(FIELD_ERROR_CODE, responseEntity.getBody().code());
+        assertEquals(FIELD_ERROR_MESSAGE, responseEntity.getBody().message());
         assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
         assertEquals(REQUEST_URI, responseEntity.getBody().path());
     }

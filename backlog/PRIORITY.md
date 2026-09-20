@@ -32,7 +32,7 @@ own, unrelated numbering.
 | 1 | Database schema — `client_balances` + `conversions` tables designed together (columns, relationship, locking/idempotency/index columns), plus demo client/balance seed data | Critical | REQ-5 (also lays the groundwork for REQ-6, REQ-9, REQ-10, REQ-11) | — | Done |
 | 2 | `GET /clients/{clientId}/balances` | Critical | REQ-4 | Seq 1 | Done |
 | 3 | `GET /rates` — provider integration, timeout, graceful failure, TTL cache | Critical | REQ-1, REQ-12, REQ-13 | — | Done |
-| 4 | `POST /conversions` **complete** — atomic debit/credit + response shape, insufficient-funds / not-found error paths, concurrency control, `Idempotency-Key` replay (consolidates former Seq 5, 6, 7) | Critical | REQ-2, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11 (contributes to REQ-14, REQ-17, REQ-18) | Seq 1, Seq 3 | Done |
+| 4 | `POST /conversions` **complete** — atomic debit/credit + response shape, insufficient-funds / not-found error paths, concurrency control, `Idempotency-Key` replay (consolidates former Seq 5, 6, 7) | Critical | REQ-2, REQ-6, REQ-7, REQ-8, REQ-9, REQ-10, REQ-11, REQ-14, REQ-17, REQ-18 | Seq 1, Seq 3 | Done |
 | 5 | ~~Insufficient funds / unknown client / unknown currency error paths~~ | Critical | REQ-7, REQ-8 | Seq 4 | Merged into Seq 4 |
 | 6 | ~~Concurrency control on balance updates (no double-spend)~~ | Critical | REQ-9 | Seq 4 | Merged into Seq 4 |
 | 7 | ~~`Idempotency-Key` replay handling~~ | Critical | REQ-10 | Seq 4 | Merged into Seq 4 |
@@ -228,3 +228,34 @@ rate interface of its own.
 3. **`EntityConstant.RATE_SCALE` is now 5** (`V4` narrowed `conversions.rate` to `NUMERIC(19,5)`) and
    `RateMapper.scaleRate` already rounds every provider rate to scale 5 `HALF_UP`. Seq 4 consumes an
    already-scaled rate and must not re-round it; it only sets the scale of the computed quote amount.
+
+### Seq 4 — REQ-14/REQ-17/REQ-18 upgraded from "contributes to" to fully closed — 2026-09-20
+
+Follow-on hardening after Seq 4's initial merge (idempotency-key-reuse conflict detection
+— `IdempotencyKeyConflictException` / `IDEMPOTENCY_KEY_CONFLICT` / 409 — plus `@Size` validation on the
+`Idempotency-Key` header, and the `@Version` removal from `BalanceEntity` in favour of the already-sole
+pessimistic-locking strategy) closes out what was previously only partial coverage:
+
+- **REQ-14** (validation): `CurrencyValidator` checks real ISO-4217 validity via `Currency.getInstance`
+  (not just regex shape), `ConversionRequest` carries `@Positive`/`@Digits` (bounds derived from
+  `EntityConstant.MONEY_PRECISION`/`MONEY_SCALE`, not hand-picked), `@NotBlank` on `clientId`, and
+  `@Size` on the idempotency key. Moved `Open → Done`.
+- **REQ-17** (unit + integration coverage): `ConversionServiceTest`, `ConversionProcessorTest`,
+  `CurrencyValidatorTest`, mapper tests, and `ConversionIntegrationTest` (18 cases against a real Spring
+  context + Testcontainers Postgres) are in place. Moved `Open → Done`.
+- **REQ-18** (idempotency replay / insufficient funds / happy-path explicitly tested): each has a named
+  test at both the unit and full-stack level, plus concurrency variants in
+  `ConversionConcurrencyIntegrationTest`. Moved `Open → Done`.
+
+REQ-16 is **not** touched by this note — it remains the formal responsibility of Seq 10 (still "Not
+planned"), even though the SpringDoc annotations already sitting on all three controllers substantially
+satisfy it in practice. Leaving that call to a future @planner pass rather than reassigning Seq
+ownership unilaterally here.
+
+**Update, same day, explicit user confirmation:** REQ-15 is also moved `Open → Done`. Every exception
+handler in `ForeignExchangeControllerAdvice` (11 distinct `ErrorCode`s as of this session, including
+`FIELD_ERROR` and `IDEMPOTENCY_KEY_CONFLICT`) returns the same `ErrorResponse` shape
+(`code`/`message`/`status`/`path`) via one shared `buildErrorResponse` helper, and every exception is
+only `log.error`'d server-side — none of it reaches the response body. Seq 9 remains "Not planned" as a
+standalone story (it would otherwise cover request validation too, which REQ-14 already closes), but the
+`@ControllerAdvice` half of its scope is done in practice.

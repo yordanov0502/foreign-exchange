@@ -354,3 +354,24 @@ base/quote wire asymmetry, SAME_CURRENCY rejection, the no-JaCoCo gap, in-image 
 unpinned `postgres:latest`; "What's next" lists five prioritised items. Every requirement row in
 `BACKLOG.md` is now Done. Remaining outside the tracker: commit `README.md` + these backlog updates,
 and merge the branch.
+
+### Post-close hardening: JaCoCo gate + Postgres pin — 2026-09-21 (explicit user decision)
+
+Two items promoted out of the README's "What's next" into done work:
+
+- **JaCoCo wired and enforcing**: `jacoco-maven-plugin` 0.8.13 in `pom.xml` (prepare-agent / report /
+  check at `verify`), gating the build at ≥ 80% **line** coverage (`jacoco.minimum-line-coverage`
+  property). New `lombok.config` sets `lombok.addLombokGeneratedAnnotation = true` so Lombok-generated
+  bytecode is excluded from measurement. `mvn clean verify`: BUILD SUCCESS, measured **96.2% line
+  coverage (535/556)**. Correction to the Seq 12/13 notes above: the "179 tests" figure was an artifact
+  of summing stale surefire report files across runs — a clean run counts **158 tests**, all green.
+- **Postgres pinned** `postgres:latest → postgres:18` in `docker-compose.yaml` (18.6 is what every
+  verified run actually used); compose boot re-verified on the pinned tag (postgres healthy, app 200).
+- Seed change from the same session: `V2` now also seeds `CLIENT-002` with `3000.0000 CHF` (verified:
+  fresh boot, GBP→CHF conversion 201). Editing applied migration V2 breaks Flyway validation on any
+  pre-existing database volume (checksum mismatch) — remedied locally via `docker compose down -v`;
+  README carries a troubleshooting line. Future seed changes after this push should be new migrations.
+- README "What's next" re-ordered accordingly and extended with: rate limiting per client/IP; a
+  Resilience4j retry evaluation for transient provider failures; transaction/query timeout handling
+  starting with `@Transactional(timeout)` on `ConversionProcessor` and generalising (possibly via an
+  aspect) with dedicated exception handling.

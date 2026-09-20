@@ -276,43 +276,57 @@ into domain exceptions before they reach `core/`: an invalid/unknown currency fr
   `sourceCurrency`/`sourceAmount`/`targetCurrency`/`targetAmount` verbatim, so `ConversionRequest` and
   `ConversionResponse` alias their `base*`/`quote*` Java fields to those names via `@JsonProperty`, while
   `GET /rates` keeps answering `baseCurrency`/`quoteCurrency` (the brief never names those fields). The
-  result is that the two endpoints use different JSON vocabulary for the same underlying concept — a
-  conscious choice to match the brief's exact wording where it specifies one, rather than force one
-  vocabulary onto both endpoints.
+  same principle drives the `GET /rates` **request** side: its query parameters are named `from` and `to`
+  strictly because the brief specifies the endpoint as `GET /rates?from=USD&to=EUR` verbatim — internally
+  they still bind to `baseCurrency`/`quoteCurrency` method parameters via `@RequestParam("from")` /
+  `@RequestParam("to")`. The result is that the two endpoints use different JSON vocabulary for the same
+  underlying concept — a conscious choice to match the brief's exact wording wherever it specifies one,
+  rather than force one vocabulary onto both endpoints.
 
 - **Identical currency pairs are rejected outright.** `POST /conversions` and `GET /rates` both reject a
   request where the source/base and target/quote currency are the same, with `422 SAME_CURRENCY`, without
   ever calling the rate provider. A no-op conversion (or a "rate" of 1.0 to the same currency) isn't a
   meaningful use of either endpoint, and rejecting it early avoids a wasted provider call.
 
-- **No coverage-measurement plugin.** The assignment's 80% coverage bar is not machine-verified — there's
-  no JaCoCo (or equivalent) in `pom.xml`. Confidence instead comes from a named-scenario audit: 179 tests
-  covering the happy path, insufficient funds, idempotency replay (including the conflict and
-  concurrent-duplicate cases), and concurrent-conversion races, each asserted by an explicitly named test
-  rather than incidentally covered. Honest gap: no single number backs this up.
+- **Coverage is measured and enforced.** JaCoCo gates the build at ≥ 80% line coverage — `mvn verify`
+  fails below it — and the suite (158 tests) currently measures **96% line coverage**. Lombok-generated
+  bytecode is excluded via `lombok.config` (`lombok.addLombokGeneratedAnnotation`), so the number reflects
+  hand-written logic, not generated getters and builders. The number complements rather than replaces the
+  named-scenario discipline: the happy path, insufficient funds, idempotency replay (including conflict
+  and concurrent-duplicate cases) and concurrent-conversion races each have an explicitly named test.
 
 - **Tests are skipped inside the Docker image build** (`Dockerfile`, `mvn package -DskipTests`) —
   Testcontainers needs a Docker daemon, which isn't available while building an image. The full suite
   runs in local dev / CI instead, outside the image build.
 
-- **`postgres:latest` in `docker-compose.yaml` is not pinned to a specific version.** Fine for a
-  demo/take-home environment; not what would ship to a real environment where a silent major-version
-  bump on redeploy is a real risk.
+- **The Postgres image is pinned to `postgres:18` (major version).** Pinning the major means a future
+  Postgres major release can never silently break a fresh clone of this repo, while patch releases —
+  security fixes included — still flow in automatically. Pinning further, to an exact patch tag or an
+  image digest, would be the production choice (fully reproducible deploys); for a take-home, the major
+  pin is the deliberate middle ground.
 
 ## What's next
 
 With more time, in rough priority order:
 
-1. **Pin the Postgres image tag** (`docker-compose.yaml`) instead of `latest`, to remove one source of
-   environment drift between a reviewer's run and CI.
-2. **Add JaCoCo** to `pom.xml` and enforce the 80% threshold as a build check, replacing the manual
-   named-scenario audit with a measured number.
-3. **Document the remaining `400` validation responses on `POST /conversions` and `GET /rates`** in
+1. **Document the remaining `400` validation responses on `POST /conversions` and `GET /rates`** in
    Swagger — currently only `GET /conversions` documents its `FIELD_ERROR` / `VALIDATION_FAILED` /
    `MALFORMED_REQUEST` responses, even though bean validation produces the same responses on all three
    endpoints.
-4. **Revisit the Spring Cloud OpenFeign version pin** once a Spring Cloud train targeting Boot 4.1 reaches
-   GA, to close the tested-but-unpinned-in-theory version skew described above.
+2. **Rate limiting on the public endpoints** — with no authentication layer, `X-Client-Id` is the only
+   caller identity, so a per-client (and per-IP) limit is the natural guard against one caller exhausting
+   the provider quota or the balance-lock throughput of the service.
+3. **Retry mechanism (Resilience4j) for transient provider failures** — a single retry with backoff on
+   timeouts/5xx from the rate provider, before giving up with `502 EXCHANGE_RATE_UNAVAILABLE`. Worth
+   evaluating rather than assuming: the provider call already happens outside any DB transaction, so a
+   retry is safe there, but it stacks on top of the existing 2s/3s timeouts and must not push overall
+   request latency past what callers tolerate.
+4. **Transaction/query timeout handling** — starting small: a `@Transactional(timeout = ...)` with a
+   named constant on `ConversionProcessor.processConversion`, whose pessimistic row locks are exactly
+   where a request could block indefinitely behind a stuck writer; then generalized to the remaining
+   database interactions (possibly via an aspect rather than per-method annotations), paired with
+   dedicated exception handling so a timed-out lock surfaces as a clear error response instead of a
+   generic 500.
 5. **Consider a scheduled or startup-time refresh for high-traffic currency pairs**, if usage patterns
    ever showed the plain TTL cache causing a noticeable "coldest visitor pays the provider round-trip"
    effect — not needed at this scale, but the natural next step if load grew.

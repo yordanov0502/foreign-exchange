@@ -101,8 +101,12 @@ have data to convert immediately:
 | `CLIENT-001` | EUR | 8,000.0000 |
 | `CLIENT-002` | GBP | 5,000.0000 |
 | `CLIENT-002` | CHF | 3,000.0000 |
+| `CLIENT-003` | EUR | 7,000.0000 |
+| `CLIENT-003` | CAD | 6,000.0000 |
+| `CLIENT-003` | CNY | 20,000.0000 |
 
-`CLIENT-001` can convert USD↔EUR immediately, and `CLIENT-002` GBP↔CHF. Converting into a currency a
+`CLIENT-001` can convert USD↔EUR immediately, `CLIENT-002` GBP↔CHF, and `CLIENT-003` any pair among
+EUR, CAD and CNY. Converting into a currency a
 client doesn't already hold
 (e.g. `CLIENT-002` GBP→EUR) returns `404 BALANCE_NOT_FOUND` — the service only debits/credits balance
 rows that already exist for that client, it does not open new ones on the fly. The same applies on the

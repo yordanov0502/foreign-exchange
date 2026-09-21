@@ -89,8 +89,7 @@ class ConversionServiceImpl implements ConversionService {
         try {
             return conversionProcessor.processConversion(conversionInput, exchangeRate);
         } catch (DataIntegrityViolationException duplicateIdempotencyKeyException) {
-            log.warn(
-                    "Idempotency key race detected: clientId={}, idempotencyKey={}; recovering winner's result",
+            log.warn("Idempotency key race detected: clientId={}, idempotencyKey={}; recovering winner's result",
                     conversionInput.clientId(),
                     conversionInput.idempotencyKey());
             return findExistingConversionResult(conversionInput)

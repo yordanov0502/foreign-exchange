@@ -1,6 +1,7 @@
 package zetta.foreignexchange.core.service.implementation;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import zetta.foreignexchange.common.cache.CacheConfiguration;
@@ -15,6 +16,7 @@ import zetta.foreignexchange.core.model.ExchangeRate;
 import zetta.foreignexchange.core.service.RateService;
 import zetta.foreignexchange.core.validator.CurrencyValidator;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RateServiceImpl implements RateService {
@@ -33,6 +35,7 @@ public class RateServiceImpl implements RateService {
     }
 
     private FrankfurterRatePairResponse fetchExchangeRate(String baseCurrency, String quoteCurrency) {
+        log.debug("Fetching live exchange rate from Frankfurter for {}/{}", baseCurrency, quoteCurrency);
         FrankfurterRatePairResponse frankfurterRatePairResponse;
         try {
             frankfurterRatePairResponse = frankfurterFeignClient.fetchLatestExchangeRates(baseCurrency, quoteCurrency);

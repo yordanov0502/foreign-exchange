@@ -1,6 +1,7 @@
 package zetta.foreignexchange.core.service.implementation;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,6 +34,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 class ConversionServiceImpl implements ConversionService {
@@ -87,6 +89,10 @@ class ConversionServiceImpl implements ConversionService {
         try {
             return conversionProcessor.processConversion(conversionInput, exchangeRate);
         } catch (DataIntegrityViolationException duplicateIdempotencyKeyException) {
+            log.warn(
+                    "Idempotency key race detected: clientId={}, idempotencyKey={}; recovering winner's result",
+                    conversionInput.clientId(),
+                    conversionInput.idempotencyKey());
             return findExistingConversionResult(conversionInput)
                     .orElseThrow(() -> duplicateIdempotencyKeyException);
         }

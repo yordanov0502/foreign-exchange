@@ -1,6 +1,7 @@
 package zetta.foreignexchange.core.processor;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import zetta.foreignexchange.core.constant.MoneyConstant;
@@ -31,6 +32,7 @@ import java.util.UUID;
  * {@code ConversionServiceImpl} so {@code @Transactional} applies through a real Spring proxy, and so the
  * rate provider call in the service never happens while a database transaction is open.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ConversionProcessor {
@@ -54,6 +56,7 @@ public class ConversionProcessor {
         debitAndCreditBalances(lockedBalances, computedAmounts);
 
         ConversionEntity savedConversionEntity = saveConversion(conversionInput, exchangeRate, computedAmounts);
+        logConversionCompleted(savedConversionEntity);
         List<Balance> updatedBalances = getUpdatedBalances(conversionInput.clientId());
 
         return new ConversionResult(conversionMapper.mapToConversion(savedConversionEntity), updatedBalances);
@@ -63,6 +66,18 @@ public class ConversionProcessor {
     public Optional<ConversionResult> findExistingConversionResult(String clientId, String idempotencyKey) {
         return conversionRepository.findByClientClientIdAndIdempotencyKey(clientId, idempotencyKey)
                 .map(this::toConversionResult);
+    }
+
+    private void logConversionCompleted(ConversionEntity savedConversionEntity) {
+        log.info(
+                "Conversion completed: transactionId={}, clientId={}, {} {} -> {} {}, rate={}",
+                savedConversionEntity.getTransactionId(),
+                savedConversionEntity.getClient().getClientId(),
+                savedConversionEntity.getBaseAmount(),
+                savedConversionEntity.getBaseCurrency(),
+                savedConversionEntity.getQuoteAmount(),
+                savedConversionEntity.getQuoteCurrency(),
+                savedConversionEntity.getRate());
     }
 
     private List<Balance> getUpdatedBalances(String clientId) {

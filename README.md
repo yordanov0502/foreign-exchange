@@ -123,6 +123,14 @@ client holds stays under explicit (seeded) control.
 Full request/response shapes, validation constraints and error examples are in Swagger UI once the
 service is running.
 
+**Pagination:** `GET /conversions` uses offset pagination (`page`/`size`, Spring Data `PageRequest`) as
+prescribed by the assignment's endpoint contract. It provides total counts and random page access, which
+suit a filtered history view.
+
+**Timestamps:** all timestamps are stored as `TIMESTAMPTZ` and mapped to `java.time.OffsetDateTime`
+end-to-end (entity → domain → API), so every instant carries an explicit UTC offset — unambiguous in the
+database, in day-boundary filtering, and in ISO-8601 API responses.
+
 ## Client identification
 
 `POST /conversions` and `GET /conversions` take the client via `X-Client-Id` (header) / `clientId` (query

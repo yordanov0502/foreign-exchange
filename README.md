@@ -37,15 +37,12 @@ up:
 - The API is on `http://localhost:8081`
 - Swagger UI is on `http://localhost:8081/swagger-ui.html` (OpenAPI JSON at `/v3/api-docs`)
 
-Stop with `Ctrl+C`. Remove the containers with `docker compose down`, or `docker compose down -v` to also
-drop the Postgres data volume (undoing the seeded demo data). If a boot ever fails with a Flyway
-`Migration checksum mismatch` (a database volume left over from an older checkout), `docker compose down -v`
-followed by `docker compose up` resets to a cleanly migrated state.
+Stop with `Ctrl+C`. `docker compose down -v` removes the containers and the Postgres volume — also the
+fix if Flyway ever reports a `Migration checksum mismatch` from a volume left by an older checkout.
 
-No environment variables need to be set for this flow. `docker-compose.yaml` (the Postgres service) and
-`docker-compose.override.yaml` (the `app` service, built from the `Dockerfile`) are merged automatically
-by a plain `docker compose up`, and the demo database credentials (`mydatabase` / `myuser` / `secret`) are
-already baked into both files. Host port `8081` must be free.
+No environment variables are needed: the demo database credentials are baked into the compose files,
+which a plain `docker compose up` merges automatically (`docker-compose.yaml` for Postgres,
+`docker-compose.override.yaml` for the `app` service). Host port `8081` must be free.
 
 ### Option 2 — local dev
 
@@ -54,11 +51,10 @@ already baked into both files. Host port `8081` must be free.
 .\mvnw.cmd spring-boot:run      # Windows (PowerShell and cmd)
 ```
 
-This requires a **running Docker daemon** — Spring Boot's docker-compose integration starts Postgres for
-you, but only Postgres. `application.yaml` pins `spring.docker.compose.file: docker-compose.yaml`
-explicitly, and Docker Compose skips override-file merging whenever `--file` is passed, so the `app`
-service in `docker-compose.override.yaml` is never picked up here — the JVM you're running locally is the
-app.
+Requires a **running Docker daemon** — Spring Boot's docker-compose integration starts Postgres for you,
+and only Postgres: `application.yaml` pins `spring.docker.compose.file: docker-compose.yaml`, which skips
+the override file, so the containerized `app` service never starts here — the JVM you're running locally
+is the app.
 
 ### Tests
 
@@ -106,14 +102,10 @@ have data to convert immediately:
 | `CLIENT-003` | CNY | 20,000.0000 |
 
 `CLIENT-001` can convert USD↔EUR immediately, `CLIENT-002` GBP↔CHF, and `CLIENT-003` any pair among
-EUR, CAD and CNY. Converting into a currency a
-client doesn't already hold
-(e.g. `CLIENT-002` GBP→EUR) returns `404 BALANCE_NOT_FOUND` — the service only debits/credits balance
-rows that already exist for that client, it does not open new ones on the fly. The same applies on the
-source side (converting *from* a currency the client holds no balance in is also `404 BALANCE_NOT_FOUND`);
-auto-creating a zero-balance target row on first credit would have been a defensible alternative reading
-of the spec, but rejecting both sides with 404 was the deliberate choice, so the set of currencies a
-client holds stays under explicit (seeded) control.
+EUR, CAD and CNY. Converting *from or into* a currency a client doesn't already hold (e.g. `CLIENT-002`
+GBP→EUR) returns `404 BALANCE_NOT_FOUND` — a deliberate choice: the service never opens balance rows on
+the fly, so the set of currencies a client holds stays under explicit (seeded) control. Auto-creating a
+zero-balance target row on first credit would have been a defensible alternative reading of the spec.
 
 ## API overview
 
@@ -131,18 +123,18 @@ service is running.
 prescribed by the assignment's endpoint contract. It provides total counts and random page access, which
 suit a filtered history view.
 
-**Timestamps:** all timestamps are stored as `TIMESTAMPTZ` and mapped to `java.time.OffsetDateTime`
-end-to-end (entity → domain → API), so every instant carries an explicit UTC offset — unambiguous in the
-database, in day-boundary filtering, and in ISO-8601 API responses.
+**Timestamps:** all timestamps are stored as `TIMESTAMPTZ` (Postgres normalizes to a UTC instant — the
+original offset is not kept) and mapped to `java.time.OffsetDateTime` end-to-end (entity → domain → API),
+so responses serialize as ISO-8601 with an explicit offset. Since an instant alone doesn't define a
+"day", the `date` filter on `GET /conversions` explicitly interprets its value as a whole UTC calendar
+day.
 
 ## Client identification
 
 `POST /conversions` and `GET /conversions` take the client via `X-Client-Id` (header) / `clientId` (query
-param), not the request body. A header keeps "who is calling" orthogonal to "what they're asking for" —
-the same `ConversionRequest` body works regardless of caller, and it mirrors how the assignment's other
-identifiers (`Idempotency-Key`) are also carried as headers rather than folded into the payload. Since
-there's no authentication layer to derive the caller's identity from, this header **is** the identity
-claim — trusted as-is, per the assignment's non-goals.
+param), not the request body — "who is calling" stays orthogonal to "what they're asking for", mirroring
+how `Idempotency-Key` is also carried as a header. With no authentication layer to derive identity from,
+this header **is** the identity claim — trusted as-is, per the assignment's non-goals.
 
 ## Concurrency strategy
 
@@ -157,32 +149,28 @@ Optional<BalanceEntity> findAndLockByClientClientIdAndCurrency(String clientId, 
 
 `ConversionProcessor.processConversion` (`src/main/java/zetta/foreignexchange/core/processor/ConversionProcessor.java:44-60`)
 runs the whole lock → validate-funds → debit → credit → insert sequence inside one `@Transactional`
-method. Both balance rows for a client (source and target currency) are locked before either is touched,
-in a fixed order:
-
-```java
-// ConversionProcessor.java:83-98
-// Postgres does not guarantee ORDER BY determines lock acquisition order, so the two rows are
-// locked via two sequential calls in ascending currency-code order, regardless of which is the
-// base or the quote, to avoid a cross-pair deadlock (e.g. USD->EUR racing EUR->USD).
-```
-
-Locking both currencies (not just the source) in a fixed, currency-code-sorted order is what makes two
-concurrent opposite-direction conversions for the same client (USD→EUR racing EUR→USD) safe from
-deadlock: both requests always attempt to acquire the same first lock, so one simply queues behind the
-other rather than each holding one row and waiting on the other's.
+method. Both balance rows (source and target currency) are locked before either is touched, always in
+ascending currency-code order — Postgres does not guarantee `ORDER BY` determines lock acquisition order,
+so the two rows are locked via two sequential calls. The fixed order is what makes opposite-direction
+conversions for the same client (USD→EUR racing EUR→USD) deadlock-free: both requests contend on the same
+first lock, so one queues behind the other instead of each holding one row and waiting on the other's.
 
 **Alternatives considered, and why they were not chosen:**
 
-| Alternative | Why not |
-|---|---|
-| Optimistic locking (`@Version` on `balances`) | Was in the schema initially, but removed in `V5__drop_balances_version_column.sql`. A conversion always touches *two* balance rows (debit one currency, credit another) — under `@Version`, any collision on either row means retrying the whole rate-lookup + compute + write flow, and retry logic itself has to be written and tested. A blocking row lock removes the retry path entirely: the loser just waits, it doesn't fail and redo. For a service whose write hotspot is "many conversions for the same client in a short window" rather than "many independent writers touching unrelated rows," contention is expected, not exceptional — that favors blocking over retry. |
-| Single serialized writer (e.g. one thread/queue per client) | Adds an in-process coordination mechanism (locks or a queue keyed by client) that has to survive restarts and doesn't extend to multiple app instances without an external coordinator. `SELECT ... FOR UPDATE` gets the same effective serialization *per client* for free from Postgres, and works correctly if the service is ever scaled to more than one instance, since the lock lives in the database, not in process memory. |
+- **Optimistic locking (`@Version` on `balances`)** — was in the schema initially, removed in
+  `V5__drop_balances_version_column.sql`. A conversion touches *two* balance rows, so any collision on
+  either means retrying the whole rate-lookup + compute + write flow, and the retry logic itself has to
+  be written and tested. The write hotspot here is "many conversions for the same client in a short
+  window" — contention is expected, not exceptional — which favors a blocking lock: the loser just waits,
+  it doesn't fail and redo.
+- **Single serialized writer per client (thread/queue)** — in-process coordination that has to survive
+  restarts and doesn't extend to multiple app instances. `SELECT ... FOR UPDATE` gets the same per-client
+  serialization for free from Postgres, and keeps working if the service is ever scaled out, since the
+  lock lives in the database.
 
-**Trade-off accepted:** pessimistic locking holds a row lock for the duration of the transaction, which
-throttles throughput for a client issuing many concurrent conversions. That's an acceptable cost here —
-correctness (no lost updates, no double-spend) matters more than raw throughput for a take-home-sized
-service, and the lock scope is exactly two rows for one client, not a table-wide lock.
+**Trade-off accepted:** the row lock is held for the transaction's duration, throttling a client issuing
+many concurrent conversions. Acceptable here — correctness (no lost updates, no double-spend) matters
+more than raw throughput, and the lock scope is exactly two rows for one client, not a table-wide lock.
 
 One rule this design depends on: the rate provider is always called *before* the transaction opens
 (`ConversionServiceImpl.convert`, `src/main/java/zetta/foreignexchange/core/service/implementation/ConversionServiceImpl.java:52-65`)
@@ -239,13 +227,15 @@ private Cache<Object, Object> buildExchangeRateCache() {
 }
 ```
 
-**Invalidation choice: none — pure TTL expiry (`expireAfterWrite`, 30 minutes), no manual eviction
-endpoint or event-driven invalidation.** FX rates from a public provider don't change fast enough, and
-this service doesn't need sub-30-minute freshness, to justify the extra moving part of a manual
-invalidation path (an admin endpoint, a scheduled refresh job, or a pub/sub invalidation signal). A fixed
-TTL is the simplest mechanism that keeps rates reasonably fresh and bounds how long a stale rate can be
-served after the true market rate moves — which is exactly the trade-off KISS asks for here: build the
-one thing the requirement needs, not a general-purpose cache-invalidation feature no endpoint asks for.
+**Invalidation choice: none — pure TTL expiry (`expireAfterWrite`, 30 minutes).** The 30-minute value is
+sized to the provider: Frankfurter v2 blends daily reference rates from multiple central banks, and each
+source updates at most once per working day, so the TTL bounds staleness at half an hour while keeping
+calls to the free provider minimal — a shorter TTL would buy little real freshness against daily
+upstreams. Public FX rates don't
+change fast enough, and this service doesn't need sub-30-minute freshness, to justify a manual eviction
+endpoint, refresh job, or event-driven invalidation. A fixed TTL is the simplest mechanism that bounds
+how long a stale rate can be served — the KISS trade-off: build the one thing the requirement needs, not
+a cache-invalidation feature no endpoint asks for.
 
 ## Rate provider
 
@@ -276,40 +266,33 @@ into domain exceptions before they reach `core/`: an invalid/unknown currency fr
 ## Trade-offs
 
 - **Spring Cloud OpenFeign for the provider client**, chosen for consistency with the `@FeignClient` style
-  used elsewhere by the author, over Spring's native `@HttpExchange` + `RestClient`. This has a known,
-  empirically tested version skew: `spring-cloud-dependencies` 2025.1.3 (the latest GA train) is built
-  against Spring Boot 4.0.8, while this project runs Boot 4.1.1 — the only train that targets 4.1 is a
-  `2026.0.0-SNAPSHOT`, which isn't acceptable to depend on. The skew was validated against the live
-  provider (200 with `BigDecimal` deserialization, provider 404, provider 422, and a forced 1 ms read
-  timeout) with the full test suite and `mvn checkstyle:check` green before committing to it.
+  used elsewhere by the author, over Spring's native `@HttpExchange` + `RestClient`. This carries a known
+  version skew — `spring-cloud-dependencies` 2025.1.3 targets Boot 4.0.8 while this project runs 4.1.1,
+  and the only 4.1 train is a snapshot — validated empirically against the live provider (success,
+  provider 404/422, forced timeout) with the full suite and checkstyle green before committing to it.
 
-- **Deliberate wire vocabulary asymmetry.** Internally, and on `GET /rates`, the vocabulary is
-  `baseCurrency`/`quoteCurrency`. The assignment names `POST /conversions`' fields
-  `sourceCurrency`/`sourceAmount`/`targetCurrency`/`targetAmount` verbatim, so `ConversionRequest` and
-  `ConversionResponse` alias their `base*`/`quote*` Java fields to those names via `@JsonProperty`, while
-  `GET /rates` keeps answering `baseCurrency`/`quoteCurrency` (the brief never names those fields). The
-  same principle drives the `GET /rates` **request** side: its query parameters are named `from` and `to`
-  strictly because the brief specifies the endpoint as `GET /rates?from=USD&to=EUR` verbatim — internally
-  they still bind to `baseCurrency`/`quoteCurrency` method parameters via `@RequestParam("from")` /
-  `@RequestParam("to")`. The result is that the two endpoints use different JSON vocabulary for the same
-  underlying concept — a conscious choice to match the brief's exact wording wherever it specifies one,
-  rather than force one vocabulary onto both endpoints.
+- **Deliberate wire vocabulary asymmetry.** Wherever the brief specifies exact wire names, those names
+  win: `POST /conversions` uses `sourceCurrency`/`sourceAmount`/`targetCurrency`/`targetAmount` (via
+  `@JsonProperty` aliases) and `GET /rates` takes `?from=&to=` (via `@RequestParam` aliases), both
+  verbatim from the brief. Everything the brief doesn't name — internal code and the `GET /rates`
+  response — keeps the single internal vocabulary `baseCurrency`/`quoteCurrency`. The two endpoints thus
+  use different JSON vocabulary for the same concept, a conscious choice over forcing one vocabulary onto
+  both.
 
 - **Identical currency pairs are rejected outright.** `POST /conversions` and `GET /rates` both reject a
   request where the source/base and target/quote currency are the same, with `422 SAME_CURRENCY`, without
   ever calling the rate provider. A no-op conversion (or a "rate" of 1.0 to the same currency) isn't a
   meaningful use of either endpoint, and rejecting it early avoids a wasted provider call.
 
-- **Coverage is measured and enforced.** JaCoCo gates the build at ≥ 80% line coverage — `mvn verify`
-  fails below it — and the suite (158 tests) currently measures **96% line coverage**. Lombok-generated
-  bytecode is excluded via `lombok.config` (`lombok.addLombokGeneratedAnnotation`), so the number reflects
-  hand-written logic, not generated getters and builders. The number complements rather than replaces the
-  named-scenario discipline: the happy path, insufficient funds, idempotency replay (including conflict
-  and concurrent-duplicate cases) and concurrent-conversion races each have an explicitly named test.
+- **Coverage is measured and enforced.** JaCoCo fails `mvn verify` below 80% line coverage; the suite
+  (158 tests) currently measures **96%**, with Lombok-generated bytecode excluded via `lombok.config` so
+  the number reflects hand-written logic. The number complements named-scenario discipline: happy path,
+  insufficient funds, idempotency replay/conflict/concurrent-duplicate, and concurrent-conversion races
+  each have an explicitly named test.
 
 - **Tests are skipped inside the Docker image build** (`Dockerfile`, `mvn package -DskipTests`) —
   Testcontainers needs a Docker daemon, which isn't available while building an image. The full suite
-  runs in local dev / CI instead, outside the image build.
+  runs via `./mvnw test` on the host instead.
 
 - **The Postgres image is pinned to `postgres:18` (major version).** Pinning the major means a future
   Postgres major release can never silently break a fresh clone of this repo, while patch releases —
@@ -321,24 +304,20 @@ into domain exceptions before they reach `core/`: an invalid/unknown currency fr
 
 With more time, in rough priority order:
 
-1. **Document the remaining `400` validation responses on `POST /conversions` and `GET /rates`** in
-   Swagger — currently only `GET /conversions` documents its `FIELD_ERROR` / `VALIDATION_FAILED` /
-   `MALFORMED_REQUEST` responses, even though bean validation produces the same responses on all three
-   endpoints.
-2. **Rate limiting on the public endpoints** — with no authentication layer, `X-Client-Id` is the only
-   caller identity, so a per-client (and per-IP) limit is the natural guard against one caller exhausting
-   the provider quota or the balance-lock throughput of the service.
-3. **Retry mechanism (Resilience4j) for transient provider failures** — a single retry with backoff on
-   timeouts/5xx from the rate provider, before giving up with `502 EXCHANGE_RATE_UNAVAILABLE`. Worth
-   evaluating rather than assuming: the provider call already happens outside any DB transaction, so a
-   retry is safe there, but it stacks on top of the existing 2s/3s timeouts and must not push overall
-   request latency past what callers tolerate.
-4. **Transaction/query timeout handling** — starting small: a `@Transactional(timeout = ...)` with a
-   named constant on `ConversionProcessor.processConversion`, whose pessimistic row locks are exactly
-   where a request could block indefinitely behind a stuck writer; then generalized to the remaining
-   database interactions (possibly via an aspect rather than per-method annotations), paired with
-   dedicated exception handling so a timed-out lock surfaces as a clear error response instead of a
-   generic 500.
-5. **Consider a scheduled or startup-time refresh for high-traffic currency pairs**, if usage patterns
-   ever showed the plain TTL cache causing a noticeable "coldest visitor pays the provider round-trip"
-   effect — not needed at this scale, but the natural next step if load grew.
+1. **Document the remaining `400` validation responses in Swagger** — currently only `GET /conversions`
+   documents its `FIELD_ERROR` / `VALIDATION_FAILED` / `MALFORMED_REQUEST` responses, though bean
+   validation produces the same responses on all three endpoints.
+2. **Rate limiting on the public endpoints** — with no auth, `X-Client-Id` is the only caller identity,
+   so a per-client (and per-IP) limit is the natural guard against one caller exhausting the provider
+   quota or the balance-lock throughput.
+3. **Retry (Resilience4j) for transient provider failures** — a single retry with backoff on
+   timeouts/5xx before giving up with `502 EXCHANGE_RATE_UNAVAILABLE`. Safe (the call is already outside
+   any DB transaction), but it stacks on the existing 2s/3s timeouts and must not push overall latency
+   past what callers tolerate.
+4. **Transaction/query timeout handling** — starting with `@Transactional(timeout = ...)` on
+   `ConversionProcessor.processConversion`, whose pessimistic row locks are exactly where a request could
+   block behind a stuck writer, paired with exception handling so a timed-out lock surfaces as a clear
+   error instead of a generic 500.
+5. **Scheduled or startup-time refresh for high-traffic currency pairs** — only if the plain TTL cache
+   ever caused a noticeable "coldest visitor pays the provider round-trip" effect; not needed at this
+   scale.
